@@ -15,6 +15,7 @@ cmsenv
 Fork this repo and then
 ```
 git clone git@github.com:<YOUR_USER>/Phase2Timing.git
+cd Phase2Timing
 git remote add upstream git@github.com:danbarto/Phase2Timing.git
 ```
 
@@ -24,3 +25,7 @@ scram build clean
 scram b -j 8
 ```
 
+Run locally
+```
+cmsRun Phase2TimingAnalyzer/python/ConfFile_local_file_cfg.py
+```
