@@ -25,7 +25,14 @@ scram build clean
 scram b -j 8
 ```
 
-Run locally
+## Run locally
 ```
 cmsRun Phase2TimingAnalyzer/python/ConfFile_local_file_cfg.py
 ```
+
+Input signal files are on ceph, e.g.:
+
+``` shell
+/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH/
+```
+
