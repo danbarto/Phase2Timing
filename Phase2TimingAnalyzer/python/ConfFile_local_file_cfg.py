@@ -1,10 +1,10 @@
 import FWCore.ParameterSet.Config as cms
 
-from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
-from Configuration.ProcessModifiers.vectorHits_cff import vectorHits
+#from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
+#from Configuration.ProcessModifiers.vectorHits_cff import vectorHits
 
-process = cms.Process('Demo',Phase2C11I13M9,vectorHits)
-#process = cms.Process("Demo")
+#process = cms.Process('Demo',Phase2C11I13M9,vectorHits)
+process = cms.Process("Demo")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.load("Geometry.CMSCommonData.cmsIdealGeometryXML_cfi");
 process.load("Geometry.CaloEventSetup.CaloGeometry_cfi");
@@ -31,7 +31,8 @@ process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(
                                 #' file:reco_8.root'
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-10000mm_privateMC_11X_RECOMINI_v2_generationForPhase2/output_10.root'
-                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH/output_10.root'  # closer to our signal of interest
+                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2_noPU_CEPH/output_10.root'
     )
 )
 
@@ -40,6 +41,7 @@ process.TFileService = cms.Service("TFileService",
 )
 
 process.demo = cms.EDAnalyzer('Phase2TimingAnalyzer',
+                              offlinePrimaryVertices = cms.InputTag("offlinePrimaryVertices", "", "RECO"),
                               genParticles    = cms.InputTag("genParticles", "", "HLT"),
                               recoak4PFJets    = cms.InputTag("ak4PFJets", "", "RECO"),
                               ticlTrackstersEM = cms.InputTag("ticlTrackstersEM"),

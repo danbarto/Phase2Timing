@@ -305,7 +305,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
       track_pt.push_back((*pvTrack)->pt());
       track_eta.push_back((*pvTrack)->eta());
       track_phi.push_back((*pvTrack)->phi());
-      //ntrack++;
+      ntrack++;
   }
 
   if(debug)std::cout<<" [DEBUG MODE] --------------- LOOP ON RECO JETS --------------------------------------"<<std::endl; 
