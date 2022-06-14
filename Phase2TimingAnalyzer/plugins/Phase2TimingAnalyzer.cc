@@ -33,6 +33,7 @@
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "Phase2Timing/Phase2TimingAnalyzer/plugins/JetTimingTools.h"
+#include "DataFormats/VertexReco/interface/Vertex.h"
 
 //
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
@@ -51,42 +52,46 @@
 // class declaration
 //
 struct tree_struc_{
-    std::vector<float> q_eta;
-    std::vector<float> q_phi;
-    std::vector<float> q_pt;
-    std::vector<float> q_vx;
-    std::vector<float> q_vy;
-    std::vector<float> q_vz;
-    std::vector<float> q_ebeta;
-    std::vector<float> q_ebphi;
-    std::vector<float> q_ebdelay;
-    std::vector<float> q_hgeta;
-    std::vector<float> q_hgphi;
-    std::vector<float> q_hgdelay;
-  int                           nrecojets;
-  int                           ngen;
-  std::vector<float>            recojet_pt;
-  std::vector<float>            recojet_eta;
-  std::vector<float>            recojet_phi;
-  std::vector<float>            recojet_e;
-  std::vector<float>            recojet_ECALtime;
-  std::vector<float>            recojet_ECALenergy;
-  std::vector<float>            recojet_ECALnCells;
-  std::vector<float>            recojet_MTDtime;
-  std::vector<float>            recojet_MTDenergy;
-  std::vector<float>            recojet_MTDnCells;
-  std::vector<float>            recojet_MTDClutime;
-  std::vector<float>            recojet_MTDCluenergy;
-  std::vector<float>            recojet_MTDnClus;
-  std::vector<float>            recojet_HGCALtime;
-  std::vector<float>            recojet_HGCALenergy;
-  std::vector<float>            recojet_HGCALnTracksters;
-  std::vector<float>  recojet_closestGenIndex;
-  std::vector<float>  recojet_closestGenR;
-  std::vector<float>  recojet_closestEbGenIndex;
-  std::vector<float>  recojet_closestEbGenR;
-  std::vector<float>  recojet_closestHgGenIndex;
-  std::vector<float>  recojet_closestHgGenR;
+  int nrecojets;
+  int ngen;
+  int ntrack;
+  std::vector<float> q_eta;
+  std::vector<float> q_phi;
+  std::vector<float> q_pt;
+  std::vector<float> q_vx;
+  std::vector<float> q_vy;
+  std::vector<float> q_vz;
+  std::vector<float> q_ebeta;
+  std::vector<float> q_ebphi;
+  std::vector<float> q_ebdelay;
+  std::vector<float> q_hgeta;
+  std::vector<float> q_hgphi;
+  std::vector<float> q_hgdelay;
+  std::vector<float> track_eta;
+  std::vector<float> track_phi;
+  std::vector<float> track_pt;
+  std::vector<float> recojet_pt;
+  std::vector<float> recojet_eta;
+  std::vector<float> recojet_phi;
+  std::vector<float> recojet_e;
+  std::vector<float> recojet_ECALtime;
+  std::vector<float> recojet_ECALenergy;
+  std::vector<float> recojet_ECALnCells;
+  std::vector<float> recojet_MTDtime;
+  std::vector<float> recojet_MTDenergy;
+  std::vector<float> recojet_MTDnCells;
+  std::vector<float> recojet_MTDClutime;
+  std::vector<float> recojet_MTDCluenergy;
+  std::vector<float> recojet_MTDnClus;
+  std::vector<float> recojet_HGCALtime;
+  std::vector<float> recojet_HGCALenergy;
+  std::vector<float> recojet_HGCALnTracksters;
+  std::vector<float> recojet_closestGenIndex;
+  std::vector<float> recojet_closestGenR;
+  std::vector<float> recojet_closestEbGenIndex;
+  std::vector<float> recojet_closestEbGenR;
+  std::vector<float> recojet_closestHgGenIndex;
+  std::vector<float> recojet_closestHgGenR;
 };
 
 // If the analyzer does not use TFileService, please remove
@@ -109,7 +114,8 @@ private:
   void clearVectors();
   JetTimingTools _jetTimingTools;
 
-  // ---------- member data -------------------- // 
+  // ---------- member data -------------------- //
+  edm::EDGetTokenT<std::vector<reco::Vertex>> vertexCollectionToken_;
   edm::Service<TFileService> fs;
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
@@ -149,6 +155,7 @@ private:
 //
 Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   _jetTimingTools(consumesCollector()),
+  vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
   _genParticles(consumes< edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("genParticles"))),
   _genParticlesH(),
   _recoak4PFJets(consumes< edm::View<reco::PFJet> >(iConfig.getParameter<edm::InputTag>("recoak4PFJets"))),
@@ -186,13 +193,15 @@ Phase2TimingAnalyzer::~Phase2TimingAnalyzer() {
 void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-   _jetTimingTools.init(iSetup);
+  _jetTimingTools.init(iSetup);
+  Handle< std::vector<reco::Vertex> > vertexCollectionH;
   Handle<View<ticl::Trackster>> tracksterEMH;
   Handle<View<ticl::Trackster>> tracksterMergeH;
   Handle<View<ticl::Trackster>> tracksterHADH;
   Handle<View<ticl::Trackster>> tracksterTrkEMH;
   Handle<View<ticl::Trackster>> tracksterTrkH;
 
+  iEvent.getByToken(vertexCollectionToken_,vertexCollectionH);
   iEvent.getByToken(_genParticles, _genParticlesH);
   iEvent.getByToken(_recoak4PFJets, _recoak4PFJetsH);
   iEvent.getByToken(ecalRecHitsEBToken_, _ecalRecHitsEBH);
@@ -215,6 +224,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int interestingquark = 0;
   int nrecojets = 0;
   int ngen = 0;
+  int ntrack = 0;
   std::vector<float> q_eta;
   std::vector<float> q_phi;
   std::vector<float> q_pt;
@@ -227,28 +237,31 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> q_hgeta;
   std::vector<float> q_hgphi;
   std::vector<float> q_hgdelay;
-  std::vector<float>    recojet_pt;
-  std::vector<float>    recojet_eta;
-  std::vector<float>    recojet_phi;
-  std::vector<float>    recojet_e;
-  std::vector<float>    recojet_ECALtime;
-  std::vector<float>    recojet_ECALenergy;
-  std::vector<float>    recojet_ECALnCells;
-  std::vector<float>    recojet_MTDtime;
-  std::vector<float>    recojet_MTDenergy;
-  std::vector<float>    recojet_MTDnCells;
-  std::vector<float>            recojet_MTDClutime;
-  std::vector<float>            recojet_MTDCluenergy;
-  std::vector<float>            recojet_MTDnClus;
-  std::vector<float>    recojet_HGCALtime;
-  std::vector<float>    recojet_HGCALenergy;
-  std::vector<float>    recojet_HGCALnTracksters;
-  std::vector<float>  recojet_closestGenIndex;
-  std::vector<float>  recojet_closestGenR;
-  std::vector<float>  recojet_closestEbGenIndex;
-  std::vector<float>  recojet_closestEbGenR;
-  std::vector<float>  recojet_closestHgGenIndex;
-  std::vector<float>  recojet_closestHgGenR;
+  std::vector<float> track_eta;
+  std::vector<float> track_phi;
+  std::vector<float> track_pt;
+  std::vector<float> recojet_pt;
+  std::vector<float> recojet_eta;
+  std::vector<float> recojet_phi;
+  std::vector<float> recojet_e;
+  std::vector<float> recojet_ECALtime;
+  std::vector<float> recojet_ECALenergy;
+  std::vector<float> recojet_ECALnCells;
+  std::vector<float> recojet_MTDtime;
+  std::vector<float> recojet_MTDenergy;
+  std::vector<float> recojet_MTDnCells;
+  std::vector<float> recojet_MTDClutime;
+  std::vector<float> recojet_MTDCluenergy;
+  std::vector<float> recojet_MTDnClus;
+  std::vector<float> recojet_HGCALtime;
+  std::vector<float> recojet_HGCALenergy;
+  std::vector<float> recojet_HGCALnTracksters;
+  std::vector<float> recojet_closestGenIndex;
+  std::vector<float> recojet_closestGenR;
+  std::vector<float> recojet_closestEbGenIndex;
+  std::vector<float> recojet_closestEbGenR;
+  std::vector<float> recojet_closestHgGenIndex;
+  std::vector<float> recojet_closestHgGenR;
 
   
   bool debug=0;
@@ -286,6 +299,14 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   auto const& mtdRecHitsETL = iEvent.get(mtdRecHitsETLToken_);
   //  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
   //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
+
+  reco::Vertex primaryVertex = vertexCollectionH->at(0);
+  for(auto pvTrack=primaryVertex.tracks_begin(); pvTrack!=primaryVertex.tracks_end(); pvTrack++){
+      track_pt.push_back((*pvTrack)->pt());
+      track_eta.push_back((*pvTrack)->eta());
+      track_phi.push_back((*pvTrack)->phi());
+      //ntrack++;
+  }
 
   if(debug)std::cout<<" [DEBUG MODE] --------------- LOOP ON RECO JETS --------------------------------------"<<std::endl; 
   for (const auto & recojet_iter : *_recoak4PFJetsH){
@@ -439,6 +460,14 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.q_hgeta.push_back(q_hgeta[ig]); 
     tree_.q_hgdelay.push_back(q_hgdelay[ig]); 
   }
+
+  tree_.ntrack = ntrack;
+  for (int it = 0; it < ntrack; it++){
+    tree_.track_pt.push_back(track_pt[it]);
+    tree_.track_eta.push_back(track_eta[it]);
+    tree_.track_phi.push_back(track_phi[it]);
+  }
+
   tree_.nrecojets        = nrecojets;
   for (int ij = 0; ij < nrecojets; ij++){
     tree_.recojet_closestGenIndex.push_back(recojet_closestGenIndex[ij]);
@@ -492,7 +521,9 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("q_vx", &tree_.q_vx);
   tree->Branch("q_vy", &tree_.q_vy);
   tree->Branch("q_vz", &tree_.q_vz);
-
+  tree->Branch("track_eta", &tree_.track_eta);
+  tree->Branch("track_phi", &tree_.track_phi);
+  tree->Branch("track_pt", &tree_.track_pt);
   tree->Branch("nrecojets",              &tree_.nrecojets,                "nrecojets/I");
   tree->Branch("recoJet_pt",             &tree_.recojet_pt);
   tree->Branch("recoJet_eta",             &tree_.recojet_eta);
@@ -550,6 +581,9 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.recojet_closestEbGenR.clear();
   tree_.recojet_closestHgGenIndex.clear();
   tree_.recojet_closestHgGenR.clear();
+  tree_.track_pt.clear();
+  tree_.track_eta.clear();
+  tree_.track_phi.clear();
   tree_.q_pt.clear();
   tree_.q_eta.clear();
   tree_.q_phi.clear();

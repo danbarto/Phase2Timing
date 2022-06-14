@@ -1,6 +1,10 @@
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("Demo")
+from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
+from Configuration.ProcessModifiers.vectorHits_cff import vectorHits
+
+process = cms.Process('Demo',Phase2C11I13M9,vectorHits)
+#process = cms.Process("Demo")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.load("Geometry.CMSCommonData.cmsIdealGeometryXML_cfi");
 process.load("Geometry.CaloEventSetup.CaloGeometry_cfi");
@@ -19,12 +23,14 @@ process.load('Geometry.MTDGeometryBuilder.mtdGeometry_cfi')
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
 
+
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.source = cms.Source("PoolSource",
     # replace 'myfile.root' with the source file you want to use
                             fileNames = cms.untracked.vstring(
-                                ' file:reco_8.root'
+                                #' file:reco_8.root'
+                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-10000mm_privateMC_11X_RECOMINI_v2_generationForPhase2/output_10.root'
     )
 )
 
