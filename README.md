@@ -26,6 +26,7 @@ scram b -j 8
 ```
 
 ## Run locally
+Don't forget about `cmsenv`!
 
 Inside the `Phase2Timing` directory do
 ```
