@@ -26,6 +26,9 @@ scram b -j 8
 ```
 
 ## Run locally
+Don't forget about `cmsenv`!
+
+Inside the `Phase2Timing` directory do
 ```
 cmsRun Phase2TimingAnalyzer/python/ConfFile_local_file_cfg.py
 ```
