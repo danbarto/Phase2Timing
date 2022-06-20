@@ -271,7 +271,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & genpar_iter : *_genParticlesH){
 
     if (genpar_iter.mother(0) == NULL)continue;
-    if(abs(genpar_iter.pdgId()) !=5  || genpar_iter.status() != 23)continue;
+    if(abs(genpar_iter.pdgId()) != 11  || genpar_iter.status() != 23)continue; //this filters what particle to take data of
     float vx = genpar_iter.vertex().x();
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
