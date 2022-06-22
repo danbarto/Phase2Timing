@@ -51,8 +51,8 @@
 //
 // class declaration
 //
-struct tree_struc_{
-  int nrecojets;
+struct tree_struc_{ //structs group several related variables, unlike an array it
+  int nrecojets;    //it doesnt have to the same data type
   int ngen;
   int ntrack;
   std::vector<float> e_eta;
@@ -106,7 +106,7 @@ public:
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
-private:
+private: 
   void beginJob() override;
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void endJob() override;
@@ -221,7 +221,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   //  auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
 
   //variable declaration
-  int interestingeuark = 0;
+  int nelectron = 0;
   int nrecojets = 0;
   int ngen = 0;
   int ntrack = 0;
@@ -271,11 +271,11 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & genpar_iter : *_genParticlesH){
 
     if (genpar_iter.mother(0) == NULL)continue;
-    if(abs(genpar_iter.pdgId()) != 11  || genpar_iter.status() != 23)continue; //this filters what particle to take data of
+    if(abs(genpar_iter.pdgId()) != 5  || genpar_iter.status() != 23)continue; //this filters what particle to take data of
     float vx = genpar_iter.vertex().x();
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
-    interestingeuark++;
+    nelectron++;
     reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
     std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
     std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
@@ -317,7 +317,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     nrecojets++;
     recojet_pt.push_back(recojet_iter.pt());
     recojet_eta.push_back(recojet_iter.eta());
-    recojet_phi.push_back(recojet_iter.phi());
+    recojet_phi.push_back(recojet_iter.phi()); //recojet_phiPhase2TimingAnalyzer.cc.push_back(recojet_iter.phi());
     recojet_e.push_back(recojet_iter.energy());
     int closestGenIndex = -1;
     float closestGenR = 999;
