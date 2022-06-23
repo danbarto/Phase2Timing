@@ -116,6 +116,7 @@ private:
 
   // ---------- member data -------------------- //
   edm::EDGetTokenT<std::vector<reco::Vertex>> vertexCollectionToken_;
+  edm::EDGetTokenT<std::vector<reco::Track>> trackCollectionToken_;
   edm::Service<TFileService> fs;
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
@@ -156,6 +157,7 @@ private:
 Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   _jetTimingTools(consumesCollector()),
   vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
+  trackCollectionToken_(consumes<std::vector<reco::Track>>(edm::InputTag("generalTracks"))),
   _genParticles(consumes< edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("genParticles"))),
   _genParticlesH(),
   _recoak4PFJets(consumes< edm::View<reco::PFJet> >(iConfig.getParameter<edm::InputTag>("recoak4PFJets"))),
@@ -195,6 +197,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
   _jetTimingTools.init(iSetup);
   Handle< std::vector<reco::Vertex> > vertexCollectionH;
+  Handle< std::vector<reco::Track> > trackCollectionH;
   Handle<View<ticl::Trackster>> tracksterEMH;
   Handle<View<ticl::Trackster>> tracksterMergeH;
   Handle<View<ticl::Trackster>> tracksterHADH;
@@ -202,6 +205,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   Handle<View<ticl::Trackster>> tracksterTrkH;
 
   iEvent.getByToken(vertexCollectionToken_,vertexCollectionH);
+  iEvent.getByToken(trackCollectionToken_,trackCollectionH);
   iEvent.getByToken(_genParticles, _genParticlesH);
   iEvent.getByToken(_recoak4PFJets, _recoak4PFJetsH);
   iEvent.getByToken(ecalRecHitsEBToken_, _ecalRecHitsEBH);
@@ -271,14 +275,14 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & genpar_iter : *_genParticlesH){
 
     if (genpar_iter.mother(0) == NULL)continue;
-    if(abs(genpar_iter.pdgId()) !=5  || genpar_iter.status() != 23)continue;
+    reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
+    std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
+    std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
+    if(abs(genpar_iter.pdgId()) !=11  || genParticleMother->pdgId()!=6000113) continue;
     float vx = genpar_iter.vertex().x();
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
     interestingquark++;
-    reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
-    std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
-    std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
     ngen++;
     q_pt.push_back(genpar_iter.pt());
     q_eta.push_back(genpar_iter.eta());
@@ -300,13 +304,14 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   //  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
   //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
 
-  reco::Vertex primaryVertex = vertexCollectionH->at(0);
-  for(auto pvTrack=primaryVertex.tracks_begin(); pvTrack!=primaryVertex.tracks_end(); pvTrack++){
-      track_pt.push_back((*pvTrack)->pt());
-      track_eta.push_back((*pvTrack)->eta());
-      track_phi.push_back((*pvTrack)->phi());
+  // Loop over all tracks in a certain collection
+  for (const auto & track_iter : *trackCollectionH){
+      track_pt.push_back(track_iter.pt());
+      track_eta.push_back(track_iter.eta());
+      track_phi.push_back(track_iter.phi());
       ntrack++;
   }
+
 
   if(debug)std::cout<<" [DEBUG MODE] --------------- LOOP ON RECO JETS --------------------------------------"<<std::endl; 
   for (const auto & recojet_iter : *_recoak4PFJetsH){

@@ -42,6 +42,7 @@ process.TFileService = cms.Service("TFileService",
 
 process.demo = cms.EDAnalyzer('Phase2TimingAnalyzer',
                               offlinePrimaryVertices = cms.InputTag("offlinePrimaryVertices", "", "RECO"),
+                              displacedTracks = cms.InputTag("generalTracks", "", "RECO"),
                               genParticles    = cms.InputTag("genParticles", "", "HLT"),
                               recoak4PFJets    = cms.InputTag("ak4PFJets", "", "RECO"),
                               ticlTrackstersEM = cms.InputTag("ticlTrackstersEM"),
