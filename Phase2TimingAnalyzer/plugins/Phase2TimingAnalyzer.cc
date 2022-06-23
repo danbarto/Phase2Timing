@@ -294,9 +294,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     float vz = genpar_iter.vertex().z();
     nelectron++;
 
-    reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
-    std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
-    std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
+    //reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
+    //std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
+    //std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
     ngen++;
     
     //beginning
