@@ -47,6 +47,9 @@
 #include "TMath.h"
 #include "TTree.h"
 
+#include "TGeoPolygon.h" //may or may not need! for ctau addition
+
+
 
 //
 // class declaration
@@ -55,6 +58,9 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   int nrecojets;    //it doesnt have to the same data type
   int ngen;
   int ntrack;
+  //ctau beginning might need some of the header files and other files to do calculation
+  std::vector<float> e_ctau;
+  //
   std::vector<float> e_eta;
   std::vector<float> e_phi;
   std::vector<float> e_pt;
@@ -229,6 +235,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int nrecojets = 0;
   int ngen = 0;
   int ntrack = 0;
+  //ctau spot 2
+  std::vector<float> e_ctau;
+  //
   std::vector<float> e_eta;
   std::vector<float> e_phi;
   std::vector<float> e_pt;
@@ -275,6 +284,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & genpar_iter : *_genParticlesH){
 
     if (genpar_iter.mother(0) == NULL)continue;
+
     reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
     std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
     std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
@@ -283,7 +293,22 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
     nelectron++;
-    ngen++; // redundant?
+
+    //reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
+    //std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
+    //std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
+    ngen++;
+    
+    //beginning
+       
+    double displacement = TMath::Sqrt((genpar_iter.vertex()-genParticleMother->vertex()).Mag2());
+    double genParticleBeta = genParticleMother->p()/genParticleMother->energy();
+    double genParticleGamma = 1./TMath::Sqrt(1.-genParticleBeta*genParticleBeta);
+    double ctau = displacement*10 / (genParticleBeta*genParticleGamma);
+
+    e_ctau.push_back(ctau);
+    // end
+
     e_pt.push_back(genpar_iter.pt());
     e_eta.push_back(genpar_iter.eta());
     e_phi.push_back(genpar_iter.phi());
@@ -452,6 +477,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   clearVectors();
   tree_.ngen        = ngen;
   for (int ig = 0; ig < ngen; ig++){
+
+    tree_.e_ctau.push_back(e_ctau[ig]);
+
     tree_.e_pt.push_back(e_pt[ig]);
     tree_.e_eta.push_back(e_eta[ig]);
     tree_.e_phi.push_back(e_phi[ig]); 
@@ -526,6 +554,9 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("e_vx", &tree_.e_vx);
   tree->Branch("e_vy", &tree_.e_vy);
   tree->Branch("e_vz", &tree_.e_vz);
+  
+  tree->Branch("e_ctau", &tree_.e_ctau);
+
   tree->Branch("track_eta", &tree_.track_eta);
   tree->Branch("track_phi", &tree_.track_phi);
   tree->Branch("track_pt", &tree_.track_pt);
@@ -592,6 +623,9 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.e_pt.clear();
   tree_.e_eta.clear();
   tree_.e_phi.clear();
+
+  tree_.e_ctau.clear();
+
   tree_.e_vx.clear();
   tree_.e_vy.clear();
   tree_.e_vz.clear();
