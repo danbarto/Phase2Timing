@@ -58,12 +58,18 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   int nrecojets;    //it doesnt have to the same data type
   int ngen;
   int ntrack;
+  int nLLP;
   //ctau beginning might need some of the header files and other files to do calculation
   std::vector<float> e_ctau;
-  //
   std::vector<float> e_eta;
   std::vector<float> e_phi;
   std::vector<float> e_pt;
+
+  std::vector<float> LLP_eta;
+  std::vector<float> LLP_phi;
+  std::vector<float> LLP_pt;
+  std::vector<float> LLP_mass;
+
   std::vector<float> e_vx;
   std::vector<float> e_vy;
   std::vector<float> e_vz;
@@ -157,7 +163,7 @@ private:
 // static data member definitions
 //
 
-//
+//if I want to add anothe collection with info I need this is wehre I would add it
 // constructors and destructor
 //
 Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
@@ -235,9 +241,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int nrecojets = 0;
   int ngen = 0;
   int ntrack = 0;
+  int nLLP = 0; //counter for LLP
   //ctau spot 2
   std::vector<float> e_ctau;
-  //
   std::vector<float> e_eta;
   std::vector<float> e_phi;
   std::vector<float> e_pt;
@@ -250,9 +256,16 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> e_hgeta;
   std::vector<float> e_hgphi;
   std::vector<float> e_hgdelay;
+
+  std::vector<float> LLP_eta; //writing out the LLP pt, eta and phi
+  std::vector<float> LLP_phi;
+  std::vector<float> LLP_pt;
+  std::vector<float> LLP_mass;
+
   std::vector<float> track_eta;
   std::vector<float> track_phi;
   std::vector<float> track_pt;
+
   std::vector<float> recojet_pt;
   std::vector<float> recojet_eta;
   std::vector<float> recojet_phi;
@@ -284,31 +297,25 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & genpar_iter : *_genParticlesH){
 
     if (genpar_iter.mother(0) == NULL)continue;
+    //genparticle is the ground truth infomation we put into the software, physics of the paticles
 
     reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
     std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
     std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
-    if(abs(genpar_iter.pdgId()) !=11  || genParticleMother->pdgId()!=6000113) continue;
+
+    if(abs(genpar_iter.pdgId()) !=11  || genParticleMother->pdgId()!=6000113) continue; //pdgID for electron w mother LLP
     float vx = genpar_iter.vertex().x();
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
-    nelectron++;
-
-    //reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
-    //std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
-    //std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
+    nelectron++; //not used anywhere???
     ngen++;
-    
-    //beginning
-       
+
     double displacement = TMath::Sqrt((genpar_iter.vertex()-genParticleMother->vertex()).Mag2());
     double genParticleBeta = genParticleMother->p()/genParticleMother->energy();
     double genParticleGamma = 1./TMath::Sqrt(1.-genParticleBeta*genParticleBeta);
     double ctau = displacement*10 / (genParticleBeta*genParticleGamma);
-
-    e_ctau.push_back(ctau);
-    // end
-
+    e_ctau.push_back(ctau); //ctau distance from beam to decay
+    
     e_pt.push_back(genpar_iter.pt());
     e_eta.push_back(genpar_iter.eta());
     e_phi.push_back(genpar_iter.phi());
@@ -330,11 +337,24 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
 
   // Loop over all tracks in a certain collection
-  for (const auto & track_iter : *trackCollectionH){
+
+  for (const auto & track_iter : *trackCollectionH){ //loops over each track
       track_pt.push_back(track_iter.pt());
       track_eta.push_back(track_iter.eta());
-      track_phi.push_back(track_iter.phi());
+      track_phi.push_back(track_iter.phi()); //see if there is .vertex to calc vertex for tracks 
       ntrack++;
+  }
+  
+  for (const auto & genpar_iter : *_genParticlesH){ //to get LLP info 
+    if (genpar_iter.mother(0) == NULL)continue;
+    //genparticle is the ground truth infomation we put into the software, physics of the paticle
+    
+    if(abs(genpar_iter.pdgId())!=6000113) continue; //pdgID for LLP w mother Higgs, || genParticleMother->pdgId()!=25
+    LLP_pt.push_back(genpar_iter.pt());
+    LLP_eta.push_back(genpar_iter.eta());
+    LLP_phi.push_back(genpar_iter.phi());
+    LLP_mass.push_back(genpar_iter.mass());
+    nLLP++;
   }
 
 
@@ -469,17 +489,22 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
 
   }
-  
-  
 
   // --- setup tree values                                                                                                                                   
   initTreeStructure();
   clearVectors();
+
+  tree_.nLLP = nLLP;
+  for (int iL = 0; iL < nLLP; iL++){
+    tree_.LLP_pt.push_back(LLP_pt[iL]);
+    tree_.LLP_eta.push_back(LLP_eta[iL]);
+    tree_.LLP_phi.push_back(LLP_phi[iL]);
+    tree_.LLP_mass.push_back(LLP_mass[iL]);
+  }
+
   tree_.ngen        = ngen;
   for (int ig = 0; ig < ngen; ig++){
-
     tree_.e_ctau.push_back(e_ctau[ig]);
-
     tree_.e_pt.push_back(e_pt[ig]);
     tree_.e_eta.push_back(e_eta[ig]);
     tree_.e_phi.push_back(e_phi[ig]); 
@@ -541,6 +566,12 @@ void Phase2TimingAnalyzer::beginJob() {
   // --- set up output tree                                                                                                                                  
   tree = fs->make<TTree>("tree","tree");
   tree->Branch("ngen",              &tree_.ngen,                "ngen/I");
+  
+  tree->Branch("LLP_eta", &tree_.LLP_eta);
+  tree->Branch("LLP_phi", &tree_.LLP_phi);
+  tree->Branch("LLP_pt", &tree_.LLP_pt);
+  tree->Branch("LLP_mass", &tree_.LLP_mass);
+
   tree->Branch("e_eta", &tree_.e_eta);
   tree->Branch("e_phi", &tree_.e_phi);
   tree->Branch("e_pt", &tree_.e_pt);
@@ -623,8 +654,12 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.e_pt.clear();
   tree_.e_eta.clear();
   tree_.e_phi.clear();
-
   tree_.e_ctau.clear();
+
+  tree_.LLP_pt.clear();
+  tree_.LLP_eta.clear();
+  tree_.LLP_phi.clear();
+  tree_.LLP_mass.clear();
 
   tree_.e_vx.clear();
   tree_.e_vy.clear();
