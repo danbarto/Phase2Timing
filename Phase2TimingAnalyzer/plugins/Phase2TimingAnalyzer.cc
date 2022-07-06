@@ -35,6 +35,8 @@
 #include "Phase2Timing/Phase2TimingAnalyzer/plugins/JetTimingTools.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "DataFormats/PatCandidates/interface/Photon.h"
+
 //
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
@@ -48,6 +50,7 @@
 #include "TTree.h"
 
 #include "TGeoPolygon.h" //may or may not need! for ctau addition
+//include electron and photon data format
 
 
 
@@ -64,12 +67,6 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   std::vector<float> e_eta;
   std::vector<float> e_phi;
   std::vector<float> e_pt;
-
-  std::vector<float> LLP_eta;
-  std::vector<float> LLP_phi;
-  std::vector<float> LLP_pt;
-  std::vector<float> LLP_mass;
-
   std::vector<float> e_vx;
   std::vector<float> e_vy;
   std::vector<float> e_vz;
@@ -79,9 +76,19 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   std::vector<float> e_hgeta;
   std::vector<float> e_hgphi;
   std::vector<float> e_hgdelay;
+
+  std::vector<float> LLP_eta;
+  std::vector<float> LLP_phi;
+  std::vector<float> LLP_pt;
+  std::vector<float> LLP_mass;
+
   std::vector<float> track_eta;
   std::vector<float> track_phi;
   std::vector<float> track_pt;
+  std::vector<float> track_vx;
+  std::vector<float> track_vy;
+  std::vector<float> track_vz;
+
   std::vector<float> recojet_pt;
   std::vector<float> recojet_eta;
   std::vector<float> recojet_phi;
@@ -129,6 +136,9 @@ private:
   // ---------- member data -------------------- //
   edm::EDGetTokenT<std::vector<reco::Vertex>> vertexCollectionToken_;
   edm::EDGetTokenT<std::vector<reco::Track>> trackCollectionToken_;
+
+  edm::EDGetTokenT<std::vector<reco::Photon>> photonCollectionToken_; //here is token for Photon
+
   edm::Service<TFileService> fs;
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
@@ -148,7 +158,8 @@ private:
   const edm::EDGetTokenT<FTLClusterCollection> btlRecCluToken_;
   edm::Handle<FTLClusterCollection> _btlRecCluH;
   const edm::EDGetTokenT<FTLClusterCollection> etlRecCluToken_;
-  edm::Handle<FTLClusterCollection> _etlRecCluH;
+  edm::Handle<FTLClusterCollection> _etlRecCluH;  
+
   // setup tree;                                                                                                                                             
   TTree* tree;
   tree_struc_ tree_;
@@ -167,7 +178,22 @@ private:
 // constructors and destructor
 //
 Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
+
+  //photonHLTFilterNamesFile_(iConfig.getParameter<string> ("photonHLTFilterNamesFile")),
+  //gedPhotonCoresToken_(consumes<vector<reco::PhotonCore> >(iConfig.getParameter<edm::InputTag>("gedPhotonCores"))),
+
   _jetTimingTools(consumesCollector()),
+
+  //photonCollectionToken_(consumes<std::reco::Photon>>(edm::InputTag("photons"))),
+
+  //photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))),
+  
+  //photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))),
+
+  //photonCollectionToken_(consumes< edm::View<reco::Photon>>(edm::InputTag("photons"))),
+  //photonCollectionToken_(consumes< edm::View<reco::Photon>>((iConfig.getParameter<edm::InputTag>("photons"))),
+
+
   vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
   trackCollectionToken_(consumes<std::vector<reco::Track>>(edm::InputTag("generalTracks"))),
   _genParticles(consumes< edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("genParticles"))),
@@ -265,6 +291,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> track_eta;
   std::vector<float> track_phi;
   std::vector<float> track_pt;
+  std::vector<float> track_vx;
+  std::vector<float> track_vy;
+  std::vector<float> track_vz;
 
   std::vector<float> recojet_pt;
   std::vector<float> recojet_eta;
@@ -309,7 +338,8 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     float vz = genpar_iter.vertex().z();
     nelectron++; //not used anywhere???
     ngen++;
-
+    
+    //for ctau calculation
     double displacement = TMath::Sqrt((genpar_iter.vertex()-genParticleMother->vertex()).Mag2());
     double genParticleBeta = genParticleMother->p()/genParticleMother->energy();
     double genParticleGamma = 1./TMath::Sqrt(1.-genParticleBeta*genParticleBeta);
@@ -341,7 +371,11 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   for (const auto & track_iter : *trackCollectionH){ //loops over each track
       track_pt.push_back(track_iter.pt());
       track_eta.push_back(track_iter.eta());
-      track_phi.push_back(track_iter.phi()); //see if there is .vertex to calc vertex for tracks 
+      track_phi.push_back(track_iter.phi()); //see if there is .vertex to calc vertex for tracks
+      
+      track_vx.push_back(track_iter.vertex().x());
+      track_vy.push_back(track_iter.vertex().y());
+      track_vz.push_back(track_iter.vertex().z());
       ntrack++;
   }
   
@@ -524,6 +558,11 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.track_pt.push_back(track_pt[it]);
     tree_.track_eta.push_back(track_eta[it]);
     tree_.track_phi.push_back(track_phi[it]);
+
+    tree_.track_vx.push_back(track_vx[it]);
+    tree_.track_vy.push_back(track_vy[it]);
+    tree_.track_vz.push_back(track_vz[it]);
+
   }
 
   tree_.nrecojets        = nrecojets;
@@ -591,6 +630,11 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("track_eta", &tree_.track_eta);
   tree->Branch("track_phi", &tree_.track_phi);
   tree->Branch("track_pt", &tree_.track_pt);
+  tree->Branch("track_vx", &tree_.track_vx);
+  tree->Branch("track_vy", &tree_.track_vy);
+  tree->Branch("track_vz", &tree_.track_vz);
+
+
   tree->Branch("nrecojets",              &tree_.nrecojets,                "nrecojets/I");
   tree->Branch("recoJet_pt",             &tree_.recojet_pt);
   tree->Branch("recoJet_eta",             &tree_.recojet_eta);
@@ -648,9 +692,14 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.recojet_closestEbGenR.clear();
   tree_.recojet_closestHgGenIndex.clear();
   tree_.recojet_closestHgGenR.clear();
+
   tree_.track_pt.clear();
   tree_.track_eta.clear();
   tree_.track_phi.clear();
+  tree_.track_vx.clear();
+  tree_.track_vy.clear();
+  tree_.track_vz.clear();
+
   tree_.e_pt.clear();
   tree_.e_eta.clear();
   tree_.e_phi.clear();
