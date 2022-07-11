@@ -135,11 +135,11 @@ private:
 
   // ---------- member data -------------------- //
   edm::EDGetTokenT<std::vector<reco::Vertex>> vertexCollectionToken_;
+  edm::EDGetTokenT<std::vector<reco::Photon>> photonCollectionToken_; //here is token for Photon
   edm::EDGetTokenT<std::vector<reco::Track>> trackCollectionToken_;
 
-  edm::EDGetTokenT<std::vector<reco::Photon>> photonCollectionToken_; //here is token for Photon
-
   edm::Service<TFileService> fs;
+  
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
   const edm::EDGetTokenT< edm::View<reco::PFJet> > _recoak4PFJets; 
@@ -179,22 +179,10 @@ private:
 //
 Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
 
-  //photonHLTFilterNamesFile_(iConfig.getParameter<string> ("photonHLTFilterNamesFile")),
-  //gedPhotonCoresToken_(consumes<vector<reco::PhotonCore> >(iConfig.getParameter<edm::InputTag>("gedPhotonCores"))),
-
   _jetTimingTools(consumesCollector()),
 
-  //photonCollectionToken_(consumes<std::reco::Photon>>(edm::InputTag("photons"))),
-
-  //photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))),
-  
-  //photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))),
-
-  //photonCollectionToken_(consumes< edm::View<reco::Photon>>(edm::InputTag("photons"))),
-  //photonCollectionToken_(consumes< edm::View<reco::Photon>>((iConfig.getParameter<edm::InputTag>("photons"))),
-
-
   vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
+  photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))), //good one
   trackCollectionToken_(consumes<std::vector<reco::Track>>(edm::InputTag("generalTracks"))),
   _genParticles(consumes< edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("genParticles"))),
   _genParticlesH(),
@@ -242,7 +230,10 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   Handle<View<ticl::Trackster>> tracksterTrkEMH;
   Handle<View<ticl::Trackster>> tracksterTrkH;
 
+  Handle< std::vector<reco::Photon> > photonCollectionTokenH; //photon, good one
+
   iEvent.getByToken(vertexCollectionToken_,vertexCollectionH);
+  iEvent.getByToken(photonCollectionToken_,photonCollectionTokenH); //good one
   iEvent.getByToken(trackCollectionToken_,trackCollectionH);
   iEvent.getByToken(_genParticles, _genParticlesH);
   iEvent.getByToken(_recoak4PFJets, _recoak4PFJetsH);
@@ -257,6 +248,8 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   
   iEvent.getByToken(btlRecCluToken_,_btlRecCluH);
   iEvent.getByToken(etlRecCluToken_,_etlRecCluH);
+
+
   //  auto _btlRecCluH = makeValid(iEvent.getHandle(btlRecCluToken_));
   // auto _etlRecCluH = makeValid(iEvent.getHandle(etlRecCluToken_));
 
