@@ -36,7 +36,7 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
 #include "DataFormats/PatCandidates/interface/Photon.h"
-#include "DataFormats/PatCandidates/interface/Electron.h"
+//#include "DataFormats/PatCandidates/interface/Electron.h"
 
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
@@ -69,14 +69,9 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
   std::vector<float> reco_photon_pt;
-
-  //reco e information
-  std::vector<float> reco_e_eta;
-  std::vector<float> reco_e_phi;
-  std::vector<float> reco_e_pt;
-  std::vector<float> reco_e_vx;
-  std::vector<float> reco_e_vy;
-  std::vector<float> reco_e_vz;
+  std::vector<float> reco_photon_MTDenergy;
+  std::vector<float> reco_photon_MTDnCells;
+  std::vector<float> reco_photon_MTDtime;
 
   //gen e information
   std::vector<float> e_ctau;
@@ -155,11 +150,15 @@ private:
   // ---------- member data -------------------- //
   edm::EDGetTokenT<std::vector<reco::Vertex>> vertexCollectionToken_;
   edm::EDGetTokenT<std::vector<reco::Photon>> photonCollectionToken_; //here is token for Photon
+  edm::Handle< edm::View<reco::Photon> > _photonCollectionTokenH;
   edm::EDGetTokenT<std::vector<reco::Track>> trackCollectionToken_;
-  edm::EDGetTokenT<std::vector<reco::GsfElectron>> electronsToken_; //GsfElectronCollection
+  //edm::EDGetTokenT<std::vector<reco::GsfElectron>> electronsToken_; //GsfElectronCollection
 
   edm::Service<TFileService> fs;
   
+  //const edm::EDGetTokenT< edm::View<reco::Photon> > _recoPhotons; 
+  //edm::Handle< edm::View<reco::GenParticle> > _recoPhotonsH;
+
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
   const edm::EDGetTokenT< edm::View<reco::PFJet> > _recoak4PFJets; 
@@ -204,7 +203,10 @@ Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
   photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))), //good one
   trackCollectionToken_(consumes<std::vector<reco::Track>>(edm::InputTag("generalTracks"))),
-  electronsToken_(consumes<std::vector<reco::GsfElectron>>(edm::InputTag("electronsToken"))),
+  //electronsToken_(consumes<std::vector<reco::GsfElectron>>(edm::InputTag("electronsToken"))),
+
+  //_recoPhotons(consumes< edm::View<reco::Photon> >(iConfig.getParameter<edm::InputTag>("recoPhotons"))),
+  //_recoPhotonsH(),
 
   _genParticles(consumes< edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("genParticles"))),
   _genParticlesH(),
@@ -245,21 +247,21 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
   _jetTimingTools.init(iSetup);
   Handle< std::vector<reco::Vertex> > vertexCollectionH;
+  Handle< std::vector<reco::Photon> > photonCollectionTokenH; //photon, good one
   Handle< std::vector<reco::Track> > trackCollectionH;
+  //Handle< std::vector<reco::GsfElectron> > electronsTokenH;
   Handle<View<ticl::Trackster>> tracksterEMH;
   Handle<View<ticl::Trackster>> tracksterMergeH;
   Handle<View<ticl::Trackster>> tracksterHADH;
   Handle<View<ticl::Trackster>> tracksterTrkEMH;
   Handle<View<ticl::Trackster>> tracksterTrkH;
 
-  Handle< std::vector<reco::Photon> > photonCollectionTokenH; //photon, good one
-  Handle< std::vector<reco::GsfElectron> > electronsTokenH;
-
   iEvent.getByToken(vertexCollectionToken_,vertexCollectionH);
   iEvent.getByToken(photonCollectionToken_,photonCollectionTokenH); //good one
   iEvent.getByToken(trackCollectionToken_,trackCollectionH);
-  iEvent.getByToken(electronsToken_,electronsTokenH);
+  //iEvent.getByToken(electronsToken_,electronsTokenH);
 
+  //iEvent.getByToken(_recoPhotons, _recoPhotonsH);
   iEvent.getByToken(_genParticles, _genParticlesH);
   iEvent.getByToken(_recoak4PFJets, _recoak4PFJetsH);
   iEvent.getByToken(ecalRecHitsEBToken_, _ecalRecHitsEBH);
@@ -277,29 +279,23 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
   //  auto _btlRecCluH = makeValid(iEvent.getHandle(btlRecCluToken_));
   // auto _etlRecCluH = makeValid(iEvent.getHandle(etlRecCluToken_));
-
   //  auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
 
   //variable declaration
-  int nelectron = 0;
   int nrecojets = 0;
   int ngen = 0;
   int ntrack = 0;
   int nLLP = 0; //counter for LLP
-  int nphoton;
+  int nelectron = 0;
+  int nphoton = 0;
 
   //reco photon information
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
   std::vector<float> reco_photon_pt;
-  
-  //reco e information
-  std::vector<float> reco_e_eta;
-  std::vector<float> reco_e_phi;
-  std::vector<float> reco_e_pt;
-  std::vector<float> reco_e_vx;
-  std::vector<float> reco_e_vy;
-  std::vector<float> reco_e_vz;
+  std::vector<float> reco_photon_MTDenergy;
+  std::vector<float> reco_photon_MTDnCells;
+  std::vector<float> reco_photon_MTDtime;
 
   //gen e inforation
   std::vector<float> e_ctau;
@@ -330,6 +326,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> track_vy;
   std::vector<float> track_vz;
 
+/*
   //reco jet information
   std::vector<float> recojet_pt;
   std::vector<float> recojet_eta;
@@ -353,7 +350,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> recojet_closestEbGenR;
   std::vector<float> recojet_closestHgGenIndex;
   std::vector<float> recojet_closestHgGenR;
-
+*/
   
   bool debug=0;
 
@@ -425,18 +422,8 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     LLP_mass.push_back(genpar_iter.mass());
     nLLP++;
   }
-  
-  //LOOP ON ALL RECO ELECTRONS
-  for (const auto & reco_e_iter : *electronsTokenH){
-    reco_e_pt.push_back(reco_e_iter.pt());
-    reco_e_eta.push_back(reco_e_iter.eta());
-    reco_e_phi.push_back(reco_e_iter.phi());
-    reco_e_vx.push_back(reco_e_iter.vx());
-    reco_e_vy.push_back(reco_e_iter.vy());
-    reco_e_vz.push_back(reco_e_iter.vz());
-    nelectron++;
-  }
 
+/*
   //LOOP ON ALL RECO PHOTONS
   for (const auto & reco_photon_iter : *photonCollectionTokenH){
     reco_photon_pt.push_back(reco_photon_iter.pt());
@@ -444,9 +431,32 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     reco_photon_phi.push_back(reco_photon_iter.phi());
     nphoton++;
   }
+*/
 
+  if(debug)std::cout<< " [DEBUG MODE] --------------- COMPUTE PHOTON TIME FROM MTD CELLS --------------------------------------"<<std::endl; 
+  //LOOP ON ALL RECO PHOTONS
+  for (const auto & reco_photon_iter : *photonCollectionTokenH){//*photonCollectionTokenH
+    reco_photon_pt.push_back(reco_photon_iter.pt());
+    reco_photon_eta.push_back(reco_photon_iter.eta());
+    reco_photon_phi.push_back(reco_photon_iter.phi());
+    nphoton++;
+    float weightedMTDTimeCell = 0;
+    float totalMTDEnergyCell = 0;
+    unsigned int MTDnCells = 0;
+    if(fabs(reco_photon_iter.eta())<1.4442)
+      _jetTimingTools.jetTimeFromMTDCells(reco_photon_iter, mtdRecHitsBTL, weightedMTDTimeCell, totalMTDEnergyCell, MTDnCells,1);
+    else if(fabs(reco_photon_iter.eta())>1.4442 && fabs(reco_photon_iter.eta()) <3.0){
+      _jetTimingTools.jetTimeFromMTDCells(reco_photon_iter, mtdRecHitsETL, weightedMTDTimeCell, totalMTDEnergyCell, MTDnCells,0);
+    }
+    reco_photon_MTDenergy.push_back(totalMTDEnergyCell);
+    reco_photon_MTDnCells.push_back(MTDnCells);
+    if(MTDnCells>0)
+      reco_photon_MTDtime.push_back(weightedMTDTimeCell);
+    else
+      reco_photon_MTDtime.push_back(-50);
+    }
 
-
+/*
   if(debug)std::cout<< " [DEBUG MODE] --------------- LOOP ON RECO JETS --------------------------------------"<<std::endl; 
   for (const auto & recojet_iter : *_recoak4PFJetsH){
 
@@ -552,11 +562,11 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     float weightedHGCALTimeTrackster = 0;
     float totalHGCALEnergyTrackster = 0;
     unsigned int HGCALnTracksters = 0;
-  // Handle<View<ticl::Trackster>> tracksterEMH;
-  // Handle<View<ticl::Trackster>> tracksterMergeH;
-  // Handle<View<ticl::Trackster>> tracksterHADH;
-  // Handle<View<ticl::Trackster>> tracksterTrkEMH;
-  // Handle<View<ticl::Trackster>> tracksterTrkH;
+    // Handle<View<ticl::Trackster>> tracksterEMH;
+    // Handle<View<ticl::Trackster>> tracksterMergeH;
+    // Handle<View<ticl::Trackster>> tracksterHADH;
+    // Handle<View<ticl::Trackster>> tracksterTrkEMH;
+    // Handle<View<ticl::Trackster>> tracksterTrkH;
     std::vector<ticl::Trackster> tracksters;
     // tracksters.reserve(tracksters.size() + distance(tracksterEMH->begin(),tracksterEMH->end()));
     // tracksters.insert(tracksters.end(),tracksterEMH->begin(),tracksterEMH->end());
@@ -578,6 +588,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
 
   }
+*/
 
   // --- setup tree values                                                                                                                                   
   initTreeStructure();
@@ -588,16 +599,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.reco_photon_pt.push_back(reco_photon_pt[ip]);
     tree_.reco_photon_eta.push_back(reco_photon_eta[ip]);
     tree_.reco_photon_phi.push_back(reco_photon_phi[ip]);
-  }
-
-  tree_.nelectron = nelectron;
-  for (int ie = 0; ie < nelectron; ie++){
-    tree_.reco_e_pt.push_back(reco_e_pt[ie]);
-    tree_.reco_e_eta.push_back(reco_e_eta[ie]);
-    tree_.reco_e_phi.push_back(reco_e_phi[ie]);
-    tree_.reco_e_vx.push_back(reco_e_vx[ie]);
-    tree_.reco_e_vy.push_back(reco_e_vy[ie]);
-    tree_.reco_e_vz.push_back(reco_e_vz[ie]);
+    tree_.reco_photon_MTDenergy.push_back(reco_photon_MTDenergy[ip]);
+    tree_.reco_photon_MTDnCells.push_back(reco_photon_MTDnCells[ip]);
+    tree_.reco_photon_MTDtime.push_back(reco_photon_MTDtime[ip]);
   }
 
   tree_.nLLP = nLLP;
@@ -636,7 +640,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.track_vz.push_back(track_vz[it]);
 
   }
-
+/*
   tree_.nrecojets        = nrecojets;
   for (int ij = 0; ij < nrecojets; ij++){
     tree_.recojet_closestGenIndex.push_back(recojet_closestGenIndex[ij]);
@@ -662,7 +666,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.recojet_HGCALenergy.push_back(recojet_HGCALenergy[ij]);
     tree_.recojet_HGCALnTracksters.push_back(recojet_HGCALnTracksters[ij]);
   }
-
+*/
 
   // --- fill tree
   tree->Fill();
@@ -681,13 +685,9 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("reco_photon_eta", &tree_.reco_photon_eta);
   tree->Branch("reco_photon_phi", &tree_.reco_photon_phi);
   tree->Branch("reco_photon_pt", &tree_.reco_photon_pt);
-
-  tree->Branch("reco_e_eta", &tree_.reco_e_eta);
-  tree->Branch("reco_e_phi", &tree_.reco_e_phi);
-  tree->Branch("reco_e_pt", &tree_.reco_e_pt);
-  tree->Branch("reco_e_vx", &tree_.reco_e_vx);
-  tree->Branch("reco_e_vy", &tree_.reco_e_vy);
-  tree->Branch("reco_e_vz", &tree_.reco_e_vz);
+  tree->Branch("reco_photon_MTDenergy", &tree_.reco_photon_MTDenergy);
+  tree->Branch("reco_photon_MTDnCells", &tree_.reco_photon_MTDnCells);
+  tree->Branch("reco_photon_MTDtime", &tree_.reco_photon_MTDtime);
 
   tree->Branch("LLP_eta", &tree_.LLP_eta);
   tree->Branch("LLP_phi", &tree_.LLP_phi);
@@ -716,7 +716,7 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("track_vy", &tree_.track_vy);
   tree->Branch("track_vz", &tree_.track_vz);
 
-
+/*
   tree->Branch("nrecojets",              &tree_.nrecojets,                "nrecojets/I");
   tree->Branch("recoJet_pt",             &tree_.recojet_pt);
   tree->Branch("recoJet_eta",             &tree_.recojet_eta);
@@ -739,7 +739,8 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("recoJet_closestEbGenIndex",&tree_.recojet_closestEbGenIndex);
   tree->Branch("recoJet_closestEbGenR",&tree_.recojet_closestEbGenR);
   tree->Branch("recoJet_closestHgGenIndex",&tree_.recojet_closestHgGenIndex);
-  tree->Branch("recoJet_closestHgGenR",&tree_.recojet_closestHgGenR);
+  tree->Branch("recoJet_closestHgGenR",&tree_.recojet_closestHgGenR); 
+  */
 }
 
 
@@ -751,7 +752,7 @@ void Phase2TimingAnalyzer::initTreeStructure()
 
 void Phase2TimingAnalyzer::clearVectors()
 {
-
+/*
   tree_.recojet_pt.clear();
   tree_.recojet_eta.clear();
   tree_.recojet_phi.clear();
@@ -774,7 +775,7 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.recojet_closestEbGenR.clear();
   tree_.recojet_closestHgGenIndex.clear();
   tree_.recojet_closestHgGenR.clear();
-
+*/
   tree_.track_pt.clear();
   tree_.track_eta.clear();
   tree_.track_phi.clear();
@@ -785,14 +786,18 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.reco_photon_pt.clear();
   tree_.reco_photon_eta.clear();
   tree_.reco_photon_phi.clear();
+  tree_.reco_photon_MTDtime.clear();
+  tree_.reco_photon_MTDnCells.clear();
+  tree_.reco_photon_MTDenergy.clear();
 
+/*
   tree_.reco_e_pt.clear();
   tree_.reco_e_eta.clear();
   tree_.reco_e_phi.clear();
   tree_.reco_e_vx.clear();
   tree_.reco_e_vy.clear();
   tree_.reco_e_vz.clear();
-
+*/
   tree_.LLP_pt.clear();
   tree_.LLP_eta.clear();
   tree_.LLP_phi.clear();
@@ -835,3 +840,4 @@ void Phase2TimingAnalyzer::fillDescriptions(edm::ConfigurationDescriptions& desc
 
 //define this as a plug-in
 DEFINE_FWK_MODULE(Phase2TimingAnalyzer);
+
