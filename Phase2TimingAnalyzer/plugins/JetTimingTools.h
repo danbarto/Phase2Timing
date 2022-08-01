@@ -64,7 +64,7 @@ public:
                             float&,
 			   uint&,
 			   bool);//const reco::Jet&
-  void jetTimeFromMTDClus(const reco::Jet&,
+  void jetTimeFromMTDClus(const reco::Photon&,
 			      const edm::Handle<FTLClusterCollection>&,
 			      float&,
 			      float&,

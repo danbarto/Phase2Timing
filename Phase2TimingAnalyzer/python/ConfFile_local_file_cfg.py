@@ -30,8 +30,13 @@ process.source = cms.Source("PoolSource",
     # replace 'myfile.root' with the source file you want to use
                             fileNames = cms.untracked.vstring(
                                 #' file:reco_8.root'
+
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-0mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-100mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-10000mm_privateMC_11X_RECOMINI_v2_generationForPhase2/output_10.root'
-                               'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2_noPU_CEPH/output_10.root'
     )
 )

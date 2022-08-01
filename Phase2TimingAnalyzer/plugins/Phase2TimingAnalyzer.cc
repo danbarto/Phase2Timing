@@ -183,7 +183,6 @@ private:
   //edm::EDGetTokenT<std::vector<reco::GsfElectron>> electronsToken_; //GsfElectronCollection
 
   edm::Service<TFileService> fs;
-  //edm::EventSetup es;
 
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
@@ -206,9 +205,7 @@ private:
   edm::Handle<FTLClusterCollection> _etlRecCluH;
 
   edm::ESGetToken<MTDGeometry, MTDDigiGeometryRecord> mtdGeometryToken_;
-  edm::ESHandle<MTDGeometry> mtdGeometry_;
   edm::ESGetToken<MTDTopology, MTDTopologyRcd> mtdTopologyToken_;
-  edm::ESHandle<MTDTopology> mtdTopology_;
 
   // setup tree;                                                                                                                                             
   TTree* tree;
@@ -259,10 +256,8 @@ Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   etlRecCluToken_(consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recETLCluTag"))),
   _etlRecCluH(),
 
-  //mtdTopologyToken_(es.getToken<MTDTopology, MTDTopologyRcd>()) //AI suggestion
-  //error suggestion:  ESGetToken(iAdapter.template consumes<ESProduct, ESRecord>())
-  mtdTopologyToken_(consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("mtdTopology")))
-  //_mtdTopologytokenH()
+  mtdGeometryToken_(consumesCollector().esConsumes()),
+  mtdTopologyToken_(consumesCollector().esConsumes())
 {
 }
 
@@ -282,6 +277,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   using namespace edm;
 
   _jetTimingTools.init(iSetup);
+
   Handle< std::vector<reco::Vertex> > vertexCollectionH;
   Handle< std::vector<reco::Photon> > photonCollectionTokenH; //photon, good one
   Handle< std::vector<reco::Track> > trackCollectionH;
@@ -291,6 +287,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   Handle<View<ticl::Trackster>> tracksterHADH;
   Handle<View<ticl::Trackster>> tracksterTrkEMH;
   Handle<View<ticl::Trackster>> tracksterTrkH;
+
+  edm::ESHandle<MTDGeometry> mtdGeometry_ = iSetup.getHandle(mtdGeometryToken_);
+  edm::ESHandle<MTDTopology> mtdTopology_ = iSetup.getHandle(mtdTopologyToken_);
 
   iEvent.getByToken(vertexCollectionToken_,vertexCollectionH);
   iEvent.getByToken(photonCollectionToken_,photonCollectionTokenH); //good one
@@ -311,12 +310,6 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   iEvent.getByToken(btlRecCluToken_,_btlRecCluH);
   iEvent.getByToken(etlRecCluToken_,_etlRecCluH);
 
-  //  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
-  //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
-  //  auto _btlRecCluH = makeValid(iEvent.getHandle(btlRecCluToken_));
-  //  auto _etlRecCluH = makeValid(iEvent.getHandle(etlRecCluToken_));
-  //  auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
-
   //variable declaration
   int nrecojets = 0;
   int ngen = 0;
@@ -328,6 +321,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   double gp_x; //initializes the global points of the hits on the mtd detector
   double gp_y;
   double gp_z;
+  //double gp_z;
   double gp_theta;
   double gp_eta;
   double gp_phi;
@@ -446,13 +440,15 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     e_hgdelay.push_back(hgcalIntersection[3]);
   }
 
-  auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
+
+  //auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
   auto const& mtdRecHitsBTL = iEvent.get(mtdRecHitsBTLToken_); //const auto& beforehand
   auto const& mtdRecHitsETL = iEvent.get(mtdRecHitsETLToken_);
-  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
-  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
-  //edm::EventSetup(iSetup) es;
-  auto const& mtdTopology_ = iEvent.get(mtdTopologyToken_);
+  // auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
+  // auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
+  // auto const& mtdTopology_ = iEvent.get(mtdTopologyToken_);
+
+
   // LOOP ON ALL TRACKS 
   for (const auto & track_iter : *trackCollectionH){ //loops over each track
       track_pt.push_back(track_iter.pt());
@@ -477,6 +473,47 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     LLP_mass.push_back(genpar_iter.mass());
     nLLP++;
   }
+
+
+//Loop over the rec hits of btl and etl
+  for (const auto& btlHits : mtdRecHitsBTL){
+    BTLDetId detId = btlHits.id();
+    //std::cout << "Working? " << btlHits.time() << std::endl;
+    DetId geoId = detId.geographicalId(MTDTopologyMode::crysLayoutFromTopoMode(mtdTopology_->getMTDTopologyMode()));
+    const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
+    const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
+    const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
+    Local3DPoint local_point(0., 0., 0.);
+    local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
+    const auto& global_point = thedet->toGlobal(local_point);
+    gp_x = global_point.x();
+    gp_y = global_point.y();
+    //gp_z = global_point.z();  // currently unused
+    gp_theta = global_point.theta();
+    gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
+    gp_phi = TMath::ATan2(gp_y,gp_x);
+    std::cout << "BTL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
+  };
+
+  for (const auto& etlHits : mtdRecHitsETL){
+    ETLDetId detId = etlHits.id();
+    //std::cout << "Working? " << btlHits.time() << std::endl;
+    DetId geoId = detId.geographicalId();
+    const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
+    const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
+    const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
+    Local3DPoint local_point(topo.localX(etlHits.row()), topo.localY(etlHits.column()), 0.);
+    const auto& global_point = thedet->toGlobal(local_point);
+    gp_x = global_point.x();
+    gp_y = global_point.y();
+    //gp_z = global_point.z();
+    gp_theta = global_point.theta();
+    gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
+    gp_phi = TMath::ATan2(gp_y,gp_x);
+
+    std::cout << "ETL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
+
+  };
 
 
   if(debug)std::cout<< " [DEBUG MODE] --------------- COMPUTE PHOTON TIME FROM MTD CELLS --------------------------------------"<<std::endl; 
@@ -519,113 +556,6 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
       reco_photon_MTDClutime.push_back(-50);
 
     }
-
-
-
-//const edm::SortedCollection<FTLRecHit,edm::StrictWeakOrdering<FTLRecHit> >
-//const edm::Handle<FTLClusterCollection>& mtdRecClusters
-
-//need to know if it is BTL or ETL before I find the global point, only way to know if its either is if u have a particle
-//_mtdRecHitsBTLH
-//_mtdRecHitsETLH
-//_btlRecCluH
-//_etlRecCluHt
-
-
-for (const auto& btlHits : mtdRecHitsBTL){
-  std::cout << "1"<<std::endl;
-  BTLDetId detId = btlHits.id();
-  std::cout << "2"<<std::endl;
-  DetId geoId = detId.geographicalId(MTDTopologyMode::crysLayoutFromTopoMode(mtdTopology_->getMTDTopologyMode()));
-  std::cout << "3"<<std::endl;
-  const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
-  std::cout << "4"<<std::endl;
-  const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
-  std::cout << "5"<<std::endl;
-  const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
-  std::cout << "6"<<std::endl;
-  Local3DPoint local_point(0., 0., 0.);
-  std::cout << "7"<<std::endl;
-  local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
-  std::cout << "8"<<std::endl;
-  const auto& global_point = thedet->toGlobal(local_point);
-  std::cout << "9"<<std::endl;
-  gp_x = global_point.x();
-  std::cout << "10"<<std::endl;
-  gp_y = global_point.y();
-  std::cout << "11"<<std::endl;
-  gp_z = global_point.z();
-  std::cout << "12"<<std::endl;
-  gp_theta = global_point.theta();
-  std::cout << "13"<<std::endl;
-  
-  gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
-  gp_phi = TMath::ATan2(gp_y,gp_x);
-  nbtlRec++;
-  gp_x_btl_hits.push_back(gp_x);
-  gp_y_btl_hits.push_back(gp_y);
-  gp_z_btl_hits.push_back(gp_z);
-  gp_eta_btl_hits.push_back(gp_eta);
-  gp_phi_btl_hits.push_back(gp_phi);
-}
-
-/*
-for (auto const& _mtdRecHitsETLH : etlHits){
-  //calculations
-}
-
-for (auto const& _btlRecCluH : btlClu){
-  //calculations
-}
-
-for (auto const& _etlRecCluH : etlClu){
-  //calculations
-}
-*/
-
-/*
-for (auto const& mtdRH : mtdRecHits) {
-    double gp_x;
-    double gp_y;
-    double gp_z;
-    double gp_theta;
-    double gp_eta;
-    double gp_phi;
-
-    if(isBTL){
-      BTLDetId detId = mtdRH.id();
-      DetId geoId = detId.geographicalId(MTDTopologyMode::crysLayoutFromTopoMode(mtdTopology_->getMTDTopologyMode()));
-      const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
-      const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
-      const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
-      Local3DPoint local_point(0., 0., 0.);
-      local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
-      const auto& global_point = thedet->toGlobal(local_point);
-      gp_x = global_point.x();
-      gp_y = global_point.y();
-      gp_z = global_point.z();
-      gp_theta = global_point.theta();
-      gp_eta = -TMath::Log(TMath::Tan(theta/2.));
-      gp_phi = TMath::ATan2(gp_y,gp_x);
-    }
-    
-    else{
-      ETLDetId detId = mtdRH.id();
-      DetId geoId = detId.geographicalId();
-      const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
-      const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
-      const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
-      Local3DPoint local_point(topo.localX(mtdRH.row()), topo.localY(mtdRH.column()), 0.);
-      const auto& global_point = thedet->toGlobal(local_point);
-      gp_x = global_point.x();
-      gp_y = global_point.y();
-      gp_z = global_point.z();
-      gp_theta = global_point.theta();
-      gp_eta = -TMath::Log(TMath::Tan(theta/2.));
-      gp_phi = TMath::ATan2(gp_y,gp_x);
-    }
-}
-*/
 
 
 

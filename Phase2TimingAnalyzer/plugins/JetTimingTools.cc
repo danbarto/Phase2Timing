@@ -269,7 +269,7 @@ void JetTimingTools::jetTimeFromMTDCells(
 
 //calculate jet time from mtd clusters
 void JetTimingTools::jetTimeFromMTDClus(
-    const reco::Jet& jet,
+    const reco::Photon& photon,
     const edm::Handle<FTLClusterCollection>& mtdRecClusters,
     float& weightedTimeClu,
     float& totalEnergyClu,
@@ -297,7 +297,7 @@ void JetTimingTools::jetTimeFromMTDClus(
 	// --- Cluster position in the module reference frame
 	Local3DPoint local_point(topo.localX(cluster.x()), topo.localY(cluster.y()), 0.);
 	const auto& global_point = genericDet->toGlobal(local_point);
-	dR=reco::deltaR2(jet, global_point);
+	dR=reco::deltaR2(photon, global_point);
 	gp_x = global_point.x();
 	gp_y = global_point.y();
 	gp_z = global_point.z();
@@ -318,7 +318,7 @@ void JetTimingTools::jetTimeFromMTDClus(
 	// --- Cluster position in the module reference frame
 	Local3DPoint local_point(topo.localX(cluster.x()), topo.localY(cluster.y()), 0.);
 	const auto& global_point = genericDet->toGlobal(local_point);
-	dR=reco::deltaR2(jet, global_point);
+	dR=reco::deltaR2(photon, global_point);
 	gp_x = global_point.x();
 	gp_y = global_point.y();
 	gp_z = global_point.z();
