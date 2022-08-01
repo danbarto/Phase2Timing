@@ -27,6 +27,13 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 
+
+//AI shit
+#include "FWCore/Framework/interface/ESTransientHandle.h"
+#include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/EventSetup.h"
+
+
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -50,10 +57,14 @@
 #include "TTree.h"
 
 #include "TGeoPolygon.h" //may or may not need! for ctau addition
-//include electron and photon data format
-
-
-
+#include "RecoMTD/Records/interface/MTDRecoGeometryRecord.h"
+#include "Geometry/Records/interface/MTDDigiGeometryRecord.h"
+#include "Geometry/MTDGeometryBuilder/interface/MTDGeometry.h"
+#include "Geometry/Records/interface/MTDTopologyRcd.h"
+#include "Geometry/MTDNumberingBuilder/interface/MTDTopology.h"
+#include "Geometry/MTDGeometryBuilder/interface/ProxyMTDTopology.h"
+#include "Geometry/MTDGeometryBuilder/interface/RectangularMTDTopology.h"
+#include "Geometry/MTDCommonData/interface/MTDTopologyMode.h"
 //
 // class declaration
 //
@@ -64,7 +75,21 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   int nLLP;
   int nelectron;
   int nphoton;
+  int nbtlRec;
+  double gp_x; //initializes the global points of the hits on the mtd detector
+  double gp_y;
+  double gp_z;
+  double gp_theta;
+  double gp_eta;
+  double gp_phi;
 
+  // btl rech hits
+  std::vector<float> gp_x_btl_hits;
+  std::vector<float> gp_y_btl_hits;
+  std::vector<float> gp_z_btl_hits;
+  std::vector<float> gp_eta_btl_hits;
+  std::vector<float> gp_phi_btl_hits;
+  
   //reco photon information
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
@@ -72,6 +97,9 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   std::vector<float> reco_photon_MTDenergy;
   std::vector<float> reco_photon_MTDnCells;
   std::vector<float> reco_photon_MTDtime;
+  std::vector<float> reco_photon_MTDCluenergy;
+  std::vector<float> reco_photon_MTDnClus;
+  std::vector<float> reco_photon_MTDClutime;
 
   //gen e information
   std::vector<float> e_ctau;
@@ -155,9 +183,7 @@ private:
   //edm::EDGetTokenT<std::vector<reco::GsfElectron>> electronsToken_; //GsfElectronCollection
 
   edm::Service<TFileService> fs;
-  
-  //const edm::EDGetTokenT< edm::View<reco::Photon> > _recoPhotons; 
-  //edm::Handle< edm::View<reco::GenParticle> > _recoPhotonsH;
+  //edm::EventSetup es;
 
   const edm::EDGetTokenT< edm::View<reco::GenParticle> > _genParticles; 
   edm::Handle< edm::View<reco::GenParticle> > _genParticlesH;
@@ -177,7 +203,12 @@ private:
   const edm::EDGetTokenT<FTLClusterCollection> btlRecCluToken_;
   edm::Handle<FTLClusterCollection> _btlRecCluH;
   const edm::EDGetTokenT<FTLClusterCollection> etlRecCluToken_;
-  edm::Handle<FTLClusterCollection> _etlRecCluH;  
+  edm::Handle<FTLClusterCollection> _etlRecCluH;
+
+  edm::ESGetToken<MTDGeometry, MTDDigiGeometryRecord> mtdGeometryToken_;
+  edm::ESHandle<MTDGeometry> mtdGeometry_;
+  edm::ESGetToken<MTDTopology, MTDTopologyRcd> mtdTopologyToken_;
+  edm::ESHandle<MTDTopology> mtdTopology_;
 
   // setup tree;                                                                                                                                             
   TTree* tree;
@@ -201,7 +232,7 @@ Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   _jetTimingTools(consumesCollector()),
 
   vertexCollectionToken_(consumes<std::vector<reco::Vertex>>(edm::InputTag("offlinePrimaryVertices"))),
-  photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photons"))), //good one
+  photonCollectionToken_(consumes<std::vector<reco::Photon>>(edm::InputTag("photonsFromMultiCl"))), //the string is how to change the collection, middle part in TBrowser collections
   trackCollectionToken_(consumes<std::vector<reco::Track>>(edm::InputTag("generalTracks"))),
   //electronsToken_(consumes<std::vector<reco::GsfElectron>>(edm::InputTag("electronsToken"))),
 
@@ -226,7 +257,12 @@ Phase2TimingAnalyzer::Phase2TimingAnalyzer(const edm::ParameterSet& iConfig):
   btlRecCluToken_(consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recBTLCluTag"))),
   _btlRecCluH(),
   etlRecCluToken_(consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("recETLCluTag"))),
-  _etlRecCluH()
+  _etlRecCluH(),
+
+  //mtdTopologyToken_(es.getToken<MTDTopology, MTDTopologyRcd>()) //AI suggestion
+  //error suggestion:  ESGetToken(iAdapter.template consumes<ESProduct, ESRecord>())
+  mtdTopologyToken_(consumes<FTLClusterCollection>(iConfig.getParameter<edm::InputTag>("mtdTopology")))
+  //_mtdTopologytokenH()
 {
 }
 
@@ -261,7 +297,6 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   iEvent.getByToken(trackCollectionToken_,trackCollectionH);
   //iEvent.getByToken(electronsToken_,electronsTokenH);
 
-  //iEvent.getByToken(_recoPhotons, _recoPhotonsH);
   iEvent.getByToken(_genParticles, _genParticlesH);
   iEvent.getByToken(_recoak4PFJets, _recoak4PFJetsH);
   iEvent.getByToken(ecalRecHitsEBToken_, _ecalRecHitsEBH);
@@ -276,9 +311,10 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   iEvent.getByToken(btlRecCluToken_,_btlRecCluH);
   iEvent.getByToken(etlRecCluToken_,_etlRecCluH);
 
-
+  //  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
+  //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
   //  auto _btlRecCluH = makeValid(iEvent.getHandle(btlRecCluToken_));
-  // auto _etlRecCluH = makeValid(iEvent.getHandle(etlRecCluToken_));
+  //  auto _etlRecCluH = makeValid(iEvent.getHandle(etlRecCluToken_));
   //  auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
 
   //variable declaration
@@ -288,7 +324,21 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int nLLP = 0; //counter for LLP
   int nelectron = 0;
   int nphoton = 0;
+  int nbtlRec = 0;
+  double gp_x; //initializes the global points of the hits on the mtd detector
+  double gp_y;
+  double gp_z;
+  double gp_theta;
+  double gp_eta;
+  double gp_phi;
 
+  //btl rech hits
+  std::vector<float> gp_x_btl_hits;
+  std::vector<float> gp_y_btl_hits;
+  std::vector<float> gp_z_btl_hits;
+  std::vector<float> gp_eta_btl_hits;
+  std::vector<float> gp_phi_btl_hits;
+ 
   //reco photon information
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
@@ -296,6 +346,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> reco_photon_MTDenergy;
   std::vector<float> reco_photon_MTDnCells;
   std::vector<float> reco_photon_MTDtime;
+  std::vector<float> reco_photon_MTDCluenergy;
+  std::vector<float> reco_photon_MTDnClus;
+  std::vector<float> reco_photon_MTDClutime;
 
   //gen e inforation
   std::vector<float> e_ctau;
@@ -363,9 +416,10 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
     reco::GenParticle * genParticleMother = (reco::GenParticle *) genpar_iter.mother();
     std::vector<double> ecalIntersection = _jetTimingTools.surfaceIntersection(genpar_iter,*genParticleMother,130);
-    std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,520);
+    std::vector<double> hgcalIntersection = _jetTimingTools.endCapIntersection(genpar_iter,*genParticleMother,300,300);
 
     if(abs(genpar_iter.pdgId()) !=11  || genParticleMother->pdgId()!=6000113) continue; //pdgID for electron w mother LLP
+    
     float vx = genpar_iter.vertex().x();
     float vy = genpar_iter.vertex().y();
     float vz = genpar_iter.vertex().z();
@@ -386,18 +440,19 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     e_vz.push_back(vz);
     e_ebphi.push_back(ecalIntersection[1]);
     e_ebeta.push_back(ecalIntersection[0]);
-    e_ebdelay.push_back(ecalIntersection[3]);
+    e_ebdelay.push_back(ecalIntersection[3]); //time delay
     e_hgphi.push_back(hgcalIntersection[1]);
     e_hgeta.push_back(hgcalIntersection[0]);
     e_hgdelay.push_back(hgcalIntersection[3]);
   }
 
   auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
-  auto const& mtdRecHitsBTL = iEvent.get(mtdRecHitsBTLToken_);
+  auto const& mtdRecHitsBTL = iEvent.get(mtdRecHitsBTLToken_); //const auto& beforehand
   auto const& mtdRecHitsETL = iEvent.get(mtdRecHitsETLToken_);
-  //  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
-  //  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
-
+  auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
+  auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
+  //edm::EventSetup(iSetup) es;
+  auto const& mtdTopology_ = iEvent.get(mtdTopologyToken_);
   // LOOP ON ALL TRACKS 
   for (const auto & track_iter : *trackCollectionH){ //loops over each track
       track_pt.push_back(track_iter.pt());
@@ -423,15 +478,6 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     nLLP++;
   }
 
-/*
-  //LOOP ON ALL RECO PHOTONS
-  for (const auto & reco_photon_iter : *photonCollectionTokenH){
-    reco_photon_pt.push_back(reco_photon_iter.pt());
-    reco_photon_eta.push_back(reco_photon_iter.eta());
-    reco_photon_phi.push_back(reco_photon_iter.phi());
-    nphoton++;
-  }
-*/
 
   if(debug)std::cout<< " [DEBUG MODE] --------------- COMPUTE PHOTON TIME FROM MTD CELLS --------------------------------------"<<std::endl; 
   //LOOP ON ALL RECO PHOTONS
@@ -440,6 +486,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     reco_photon_eta.push_back(reco_photon_iter.eta());
     reco_photon_phi.push_back(reco_photon_iter.phi());
     nphoton++;
+
     float weightedMTDTimeCell = 0;
     float totalMTDEnergyCell = 0;
     unsigned int MTDnCells = 0;
@@ -454,7 +501,135 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
       reco_photon_MTDtime.push_back(weightedMTDTimeCell);
     else
       reco_photon_MTDtime.push_back(-50);
+
+    if(debug)std::cout<<" [DEBUG MODE] ------------- COMPUTE PHOTON TIME FROM MTD CLUSTERS--------------------------------------"<<std::endl; 
+    float weightedMTDTimeClu = 0;
+    float totalMTDEnergyClu = 0;
+    unsigned int MTDnClus = 0;
+    if(fabs(reco_photon_iter.eta())<1.4442)
+      _jetTimingTools.jetTimeFromMTDClus(reco_photon_iter, _btlRecCluH, weightedMTDTimeClu, totalMTDEnergyClu, MTDnClus,1);
+    else if(fabs(reco_photon_iter.eta())>1.4442 && fabs(reco_photon_iter.eta()) <3.0){
+      _jetTimingTools.jetTimeFromMTDClus(reco_photon_iter, _etlRecCluH, weightedMTDTimeClu, totalMTDEnergyClu, MTDnClus,0);
     }
+    reco_photon_MTDCluenergy.push_back(totalMTDEnergyClu);
+    reco_photon_MTDnClus.push_back(MTDnClus);
+    if(MTDnClus>0)
+      reco_photon_MTDClutime.push_back(weightedMTDTimeClu);
+    else
+      reco_photon_MTDClutime.push_back(-50);
+
+    }
+
+
+
+//const edm::SortedCollection<FTLRecHit,edm::StrictWeakOrdering<FTLRecHit> >
+//const edm::Handle<FTLClusterCollection>& mtdRecClusters
+
+//need to know if it is BTL or ETL before I find the global point, only way to know if its either is if u have a particle
+//_mtdRecHitsBTLH
+//_mtdRecHitsETLH
+//_btlRecCluH
+//_etlRecCluHt
+
+
+for (const auto& btlHits : mtdRecHitsBTL){
+  std::cout << "1"<<std::endl;
+  BTLDetId detId = btlHits.id();
+  std::cout << "2"<<std::endl;
+  DetId geoId = detId.geographicalId(MTDTopologyMode::crysLayoutFromTopoMode(mtdTopology_->getMTDTopologyMode()));
+  std::cout << "3"<<std::endl;
+  const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
+  std::cout << "4"<<std::endl;
+  const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
+  std::cout << "5"<<std::endl;
+  const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
+  std::cout << "6"<<std::endl;
+  Local3DPoint local_point(0., 0., 0.);
+  std::cout << "7"<<std::endl;
+  local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
+  std::cout << "8"<<std::endl;
+  const auto& global_point = thedet->toGlobal(local_point);
+  std::cout << "9"<<std::endl;
+  gp_x = global_point.x();
+  std::cout << "10"<<std::endl;
+  gp_y = global_point.y();
+  std::cout << "11"<<std::endl;
+  gp_z = global_point.z();
+  std::cout << "12"<<std::endl;
+  gp_theta = global_point.theta();
+  std::cout << "13"<<std::endl;
+  
+  gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
+  gp_phi = TMath::ATan2(gp_y,gp_x);
+  nbtlRec++;
+  gp_x_btl_hits.push_back(gp_x);
+  gp_y_btl_hits.push_back(gp_y);
+  gp_z_btl_hits.push_back(gp_z);
+  gp_eta_btl_hits.push_back(gp_eta);
+  gp_phi_btl_hits.push_back(gp_phi);
+}
+
+/*
+for (auto const& _mtdRecHitsETLH : etlHits){
+  //calculations
+}
+
+for (auto const& _btlRecCluH : btlClu){
+  //calculations
+}
+
+for (auto const& _etlRecCluH : etlClu){
+  //calculations
+}
+*/
+
+/*
+for (auto const& mtdRH : mtdRecHits) {
+    double gp_x;
+    double gp_y;
+    double gp_z;
+    double gp_theta;
+    double gp_eta;
+    double gp_phi;
+
+    if(isBTL){
+      BTLDetId detId = mtdRH.id();
+      DetId geoId = detId.geographicalId(MTDTopologyMode::crysLayoutFromTopoMode(mtdTopology_->getMTDTopologyMode()));
+      const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
+      const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
+      const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
+      Local3DPoint local_point(0., 0., 0.);
+      local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
+      const auto& global_point = thedet->toGlobal(local_point);
+      gp_x = global_point.x();
+      gp_y = global_point.y();
+      gp_z = global_point.z();
+      gp_theta = global_point.theta();
+      gp_eta = -TMath::Log(TMath::Tan(theta/2.));
+      gp_phi = TMath::ATan2(gp_y,gp_x);
+    }
+    
+    else{
+      ETLDetId detId = mtdRH.id();
+      DetId geoId = detId.geographicalId();
+      const MTDGeomDet* thedet = mtdGeometry_->idToDet(geoId);
+      const ProxyMTDTopology& topoproxy = static_cast<const ProxyMTDTopology&>(thedet->topology());
+      const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
+      Local3DPoint local_point(topo.localX(mtdRH.row()), topo.localY(mtdRH.column()), 0.);
+      const auto& global_point = thedet->toGlobal(local_point);
+      gp_x = global_point.x();
+      gp_y = global_point.y();
+      gp_z = global_point.z();
+      gp_theta = global_point.theta();
+      gp_eta = -TMath::Log(TMath::Tan(theta/2.));
+      gp_phi = TMath::ATan2(gp_y,gp_x);
+    }
+}
+*/
+
+
+
+
 
 /*
   if(debug)std::cout<< " [DEBUG MODE] --------------- LOOP ON RECO JETS --------------------------------------"<<std::endl; 
@@ -594,6 +769,17 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   initTreeStructure();
   clearVectors();
 
+
+  tree_.nbtlRec = nbtlRec;
+  for (int br = 0; br < nbtlRec; br++){
+    tree_.gp_x_btl_hits.push_back(gp_x_btl_hits[br]);
+    tree_.gp_y_btl_hits.push_back(gp_y_btl_hits[br]);
+    tree_.gp_z_btl_hits.push_back(gp_z_btl_hits[br]);
+    tree_.gp_eta_btl_hits.push_back(gp_eta_btl_hits[br]);
+    tree_.gp_phi_btl_hits.push_back(gp_phi_btl_hits[br]);
+  }
+
+
   tree_.nphoton = nphoton;
   for (int ip = 0; ip < nphoton; ip++){
     tree_.reco_photon_pt.push_back(reco_photon_pt[ip]);
@@ -602,6 +788,9 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.reco_photon_MTDenergy.push_back(reco_photon_MTDenergy[ip]);
     tree_.reco_photon_MTDnCells.push_back(reco_photon_MTDnCells[ip]);
     tree_.reco_photon_MTDtime.push_back(reco_photon_MTDtime[ip]);
+    tree_.reco_photon_MTDCluenergy.push_back(reco_photon_MTDCluenergy[ip]);
+    tree_.reco_photon_MTDnClus.push_back(reco_photon_MTDnClus[ip]);
+    tree_.reco_photon_MTDClutime.push_back(reco_photon_MTDClutime[ip]); 
   }
 
   tree_.nLLP = nLLP;
@@ -682,12 +871,21 @@ void Phase2TimingAnalyzer::beginJob() {
   tree = fs->make<TTree>("tree","tree");
   tree->Branch("ngen",              &tree_.ngen,                "ngen/I");
 
+  tree->Branch("gp_x_btl_hits", &tree_.gp_x_btl_hits);
+  tree->Branch("gp_y_btl_hits", &tree_.gp_y_btl_hits);
+  tree->Branch("gp_z_btl_hits", &tree_.gp_z_btl_hits);
+  tree->Branch("gp_eta_btl_hits", &tree_.gp_eta_btl_hits);
+  tree->Branch("gp_phi_btl_hits", &tree_.gp_phi_btl_hits);
+
   tree->Branch("reco_photon_eta", &tree_.reco_photon_eta);
   tree->Branch("reco_photon_phi", &tree_.reco_photon_phi);
   tree->Branch("reco_photon_pt", &tree_.reco_photon_pt);
   tree->Branch("reco_photon_MTDenergy", &tree_.reco_photon_MTDenergy);
   tree->Branch("reco_photon_MTDnCells", &tree_.reco_photon_MTDnCells);
   tree->Branch("reco_photon_MTDtime", &tree_.reco_photon_MTDtime);
+  tree->Branch("reco_photon_MTDCluenergy", &tree_.reco_photon_MTDCluenergy);
+  tree->Branch("reco_photon_MTDnClus", &tree_.reco_photon_MTDnClus);
+  tree->Branch("reco_photon_MTDClutime", &tree_.reco_photon_MTDClutime);
 
   tree->Branch("LLP_eta", &tree_.LLP_eta);
   tree->Branch("LLP_phi", &tree_.LLP_phi);
@@ -776,6 +974,12 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.recojet_closestHgGenIndex.clear();
   tree_.recojet_closestHgGenR.clear();
 */
+  tree_.gp_x_btl_hits.clear();
+  tree_.gp_y_btl_hits.clear();
+  tree_.gp_z_btl_hits.clear();
+  tree_.gp_phi_btl_hits.clear();
+  tree_.gp_eta_btl_hits.clear();
+  
   tree_.track_pt.clear();
   tree_.track_eta.clear();
   tree_.track_phi.clear();
@@ -789,6 +993,9 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.reco_photon_MTDtime.clear();
   tree_.reco_photon_MTDnCells.clear();
   tree_.reco_photon_MTDenergy.clear();
+  tree_.reco_photon_MTDClutime.clear();
+  tree_.reco_photon_MTDnClus.clear();
+  tree_.reco_photon_MTDCluenergy.clear();
 
 /*
   tree_.reco_e_pt.clear();
