@@ -31,9 +31,9 @@ process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(
                                 #' file:reco_8.root'
 
-                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-0mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-0mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-100mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
-                                'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
 
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-10000mm_privateMC_11X_RECOMINI_v2_generationForPhase2/output_10.root'
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
@@ -42,7 +42,7 @@ process.source = cms.Source("PoolSource",
 )
 
 process.TFileService = cms.Service("TFileService",
-    fileName = cms.string("ntuple_phase2timing.root")
+    fileName = cms.string("ntuple_phase2timing0mm.root")
 )
 
 process.demo = cms.EDAnalyzer('Phase2TimingAnalyzer',

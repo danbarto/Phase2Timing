@@ -76,20 +76,28 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   int nelectron;
   int nphoton;
   int nbtlRec;
-  double gp_x; //initializes the global points of the hits on the mtd detector
-  double gp_y;
-  double gp_z;
-  double gp_theta;
-  double gp_eta;
-  double gp_phi;
-
+  int netlRec;
+  
   // btl rech hits
   std::vector<float> gp_x_btl_hits;
   std::vector<float> gp_y_btl_hits;
   std::vector<float> gp_z_btl_hits;
   std::vector<float> gp_eta_btl_hits;
   std::vector<float> gp_phi_btl_hits;
+  std::vector<float> gp_theta_btl_hits;
+  std::vector<float> gp_time_btl_hits;
+  std::vector<float> gp_energy_btl_hits;
   
+  // etl rech hits
+  std::vector<float> gp_x_etl_hits;
+  std::vector<float> gp_y_etl_hits;
+  std::vector<float> gp_z_etl_hits;
+  std::vector<float> gp_eta_etl_hits;
+  std::vector<float> gp_phi_etl_hits;
+  std::vector<float> gp_theta_etl_hits;
+  std::vector<float> gp_time_etl_hits;
+  std::vector<float> gp_energy_etl_hits;
+
   //reco photon information
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
@@ -318,13 +326,14 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int nelectron = 0;
   int nphoton = 0;
   int nbtlRec = 0;
-  double gp_x; //initializes the global points of the hits on the mtd detector
-  double gp_y;
-  double gp_z;
-  //double gp_z;
-  double gp_theta;
-  double gp_eta;
-  double gp_phi;
+  int netlRec = 0;
+  // double gp_x; //initializes the global points of the hits on the mtd detector
+  // double gp_y;
+  // double gp_z;
+  // //double gp_z;
+  // double gp_theta;
+  // double gp_eta;
+  // double gp_phi;
 
   //btl rech hits
   std::vector<float> gp_x_btl_hits;
@@ -332,7 +341,20 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> gp_z_btl_hits;
   std::vector<float> gp_eta_btl_hits;
   std::vector<float> gp_phi_btl_hits;
- 
+  std::vector<float> gp_theta_btl_hits;
+  std::vector<float> gp_time_btl_hits;
+  std::vector<float> gp_energy_btl_hits;
+  
+  // etl rech hits
+  std::vector<float> gp_x_etl_hits;
+  std::vector<float> gp_y_etl_hits;
+  std::vector<float> gp_z_etl_hits;
+  std::vector<float> gp_eta_etl_hits;
+  std::vector<float> gp_phi_etl_hits;
+  std::vector<float> gp_theta_etl_hits;
+  std::vector<float> gp_time_etl_hits;
+  std::vector<float> gp_energy_etl_hits;
+
   //reco photon information
   std::vector<float> reco_photon_eta;
   std::vector<float> reco_photon_phi;
@@ -444,9 +466,6 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   //auto const& ecalRecHitsEB = iEvent.get(ecalRecHitsEBToken_);
   auto const& mtdRecHitsBTL = iEvent.get(mtdRecHitsBTLToken_); //const auto& beforehand
   auto const& mtdRecHitsETL = iEvent.get(mtdRecHitsETLToken_);
-  // auto const& mtdClusBTL = iEvent.get(btlRecCluToken_);
-  // auto const& mtdClusETL = iEvent.get(btlRecCluToken_);
-  // auto const& mtdTopology_ = iEvent.get(mtdTopologyToken_);
 
 
   // LOOP ON ALL TRACKS 
@@ -486,13 +505,24 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     Local3DPoint local_point(0., 0., 0.);
     local_point = topo.pixelToModuleLocalPoint(local_point, detId.row(topo.nrows()), detId.column(topo.nrows()));
     const auto& global_point = thedet->toGlobal(local_point);
-    gp_x = global_point.x();
-    gp_y = global_point.y();
-    //gp_z = global_point.z();  // currently unused
-    gp_theta = global_point.theta();
-    gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
-    gp_phi = TMath::ATan2(gp_y,gp_x);
-    std::cout << "BTL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
+    double gp_x = global_point.x();
+    double gp_y = global_point.y();
+    double gp_z = global_point.z();  
+    double gp_theta = global_point.theta();
+    double gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
+    double gp_phi = TMath::ATan2(gp_y,gp_x);
+
+    gp_eta_btl_hits.push_back(gp_eta);
+    gp_phi_btl_hits.push_back(gp_phi);
+    gp_theta_btl_hits.push_back(gp_theta);
+    gp_x_btl_hits.push_back(gp_x);
+    gp_y_btl_hits.push_back(gp_y);
+    gp_z_btl_hits.push_back(gp_z);
+    gp_time_btl_hits.push_back(btlHits.time());
+    gp_energy_btl_hits.push_back(btlHits.energy());
+    nbtlRec++;
+
+    //std::cout << "BTL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
   };
 
   for (const auto& etlHits : mtdRecHitsETL){
@@ -504,15 +534,24 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     const RectangularMTDTopology& topo = static_cast<const RectangularMTDTopology&>(topoproxy.specificTopology());
     Local3DPoint local_point(topo.localX(etlHits.row()), topo.localY(etlHits.column()), 0.);
     const auto& global_point = thedet->toGlobal(local_point);
-    gp_x = global_point.x();
-    gp_y = global_point.y();
-    //gp_z = global_point.z();
-    gp_theta = global_point.theta();
-    gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
-    gp_phi = TMath::ATan2(gp_y,gp_x);
+    
+    double gp_x = global_point.x();
+    double gp_y = global_point.y();
+    double gp_z = global_point.z();
+    double gp_theta = global_point.theta();
+    double gp_eta = -TMath::Log(TMath::Tan(gp_theta/2.));
+    double gp_phi = TMath::ATan2(gp_y,gp_x);
 
-    std::cout << "ETL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
-
+    gp_eta_etl_hits.push_back(gp_eta);
+    gp_phi_etl_hits.push_back(gp_phi);
+    gp_theta_etl_hits.push_back(gp_theta);
+    gp_x_etl_hits.push_back(gp_x);
+    gp_y_etl_hits.push_back(gp_y);
+    gp_z_etl_hits.push_back(gp_z);
+    gp_time_etl_hits.push_back(etlHits.time());
+    gp_energy_etl_hits.push_back(etlHits.energy());
+    //std::cout << "ETL hit: " << gp_theta << " " << gp_eta << " " << gp_phi << std::endl;
+    netlRec++;
   };
 
 
@@ -707,8 +746,22 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     tree_.gp_z_btl_hits.push_back(gp_z_btl_hits[br]);
     tree_.gp_eta_btl_hits.push_back(gp_eta_btl_hits[br]);
     tree_.gp_phi_btl_hits.push_back(gp_phi_btl_hits[br]);
-  }
+    tree_.gp_theta_btl_hits.push_back(gp_theta_btl_hits[br]);
+    tree_.gp_time_btl_hits.push_back(gp_time_btl_hits[br]);
+    tree_.gp_energy_btl_hits.push_back(gp_energy_btl_hits[br]);
+    }
 
+  tree_.netlRec = netlRec;
+  for (int er = 0; er < netlRec; er++){
+    tree_.gp_x_etl_hits.push_back(gp_x_etl_hits[er]);
+    tree_.gp_y_etl_hits.push_back(gp_y_etl_hits[er]);
+    tree_.gp_z_etl_hits.push_back(gp_z_etl_hits[er]);
+    tree_.gp_eta_etl_hits.push_back(gp_eta_etl_hits[er]);
+    tree_.gp_phi_etl_hits.push_back(gp_phi_etl_hits[er]);
+    tree_.gp_theta_etl_hits.push_back(gp_theta_etl_hits[er]);
+    tree_.gp_time_etl_hits.push_back(gp_time_etl_hits[er]);
+    tree_.gp_energy_etl_hits.push_back(gp_energy_etl_hits[er]);
+}
 
   tree_.nphoton = nphoton;
   for (int ip = 0; ip < nphoton; ip++){
@@ -806,6 +859,18 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("gp_z_btl_hits", &tree_.gp_z_btl_hits);
   tree->Branch("gp_eta_btl_hits", &tree_.gp_eta_btl_hits);
   tree->Branch("gp_phi_btl_hits", &tree_.gp_phi_btl_hits);
+  tree->Branch("gp_theta_btl_hits", &tree_.gp_theta_btl_hits);
+  tree->Branch("gp_time_btl_hits", &tree_.gp_time_btl_hits);
+  tree->Branch("gp_energy_btl_hits", &tree_.gp_energy_btl_hits);
+  
+  tree->Branch("gp_x_etl_hits", &tree_.gp_x_etl_hits);
+  tree->Branch("gp_y_etl_hits", &tree_.gp_y_etl_hits);
+  tree->Branch("gp_z_etl_hits", &tree_.gp_z_etl_hits);
+  tree->Branch("gp_eta_etl_hits", &tree_.gp_eta_etl_hits);
+  tree->Branch("gp_phi_etl_hits", &tree_.gp_phi_etl_hits);
+  tree->Branch("gp_theta_etl_hits", &tree_.gp_theta_etl_hits);
+  tree->Branch("gp_time_etl_hits", &tree_.gp_time_etl_hits);
+  tree->Branch("gp_energy_etl_hits", &tree_.gp_energy_etl_hits);
 
   tree->Branch("reco_photon_eta", &tree_.reco_photon_eta);
   tree->Branch("reco_photon_phi", &tree_.reco_photon_phi);
@@ -909,7 +974,19 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.gp_z_btl_hits.clear();
   tree_.gp_phi_btl_hits.clear();
   tree_.gp_eta_btl_hits.clear();
-  
+  tree_.gp_theta_btl_hits.clear();
+  tree_.gp_time_btl_hits.clear();
+  tree_.gp_energy_btl_hits.clear();
+
+  tree_.gp_x_etl_hits.clear();
+  tree_.gp_y_etl_hits.clear();
+  tree_.gp_z_etl_hits.clear();
+  tree_.gp_phi_etl_hits.clear();
+  tree_.gp_eta_etl_hits.clear();
+  tree_.gp_theta_etl_hits.clear();
+  tree_.gp_time_etl_hits.clear();
+  tree_.gp_energy_etl_hits.clear();
+
   tree_.track_pt.clear();
   tree_.track_eta.clear();
   tree_.track_phi.clear();

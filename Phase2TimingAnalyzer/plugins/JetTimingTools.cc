@@ -16,7 +16,7 @@ JetTimingTools::JetTimingTools(edm::ConsumesCollector && cc):
     mtdCellEnergyThresh_(0.5),
     mtdCellTimeThresh_(25.),
     mtdCellTimeErrorThresh_(100),
-    matchingRadius2_(0.16)
+    matchingRadius2_(0.01)
 {
 
 }
