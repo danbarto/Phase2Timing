@@ -2,6 +2,9 @@ import FWCore.ParameterSet.Config as cms
 
 #from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
 #from Configuration.ProcessModifiers.vectorHits_cff import vectorHits
+from FWCore.ParameterSet.VarParsing import VarParsing
+options = VarParsing ('analysis')
+options.parseArguments()
 
 #process = cms.Process('Demo',Phase2C11I13M9,vectorHits)
 process = cms.Process("Demo")
@@ -24,24 +27,47 @@ process.load('Geometry.MTDGeometryBuilder.mtdGeometry_cfi')
 process.load("FWCore.MessageService.MessageLogger_cfi")
 
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+
+if not options.inputFiles[0].endswith('.root'):
+    import glob
+    all_files = glob.glob(options.inputFiles[0]+'/*.root')
+    inputFiles = ["file:"+f for f in all_files if f.count('miniaod')==0]
+else:
+    inputFiles = ["file:"+f for f in options.inputFiles]
+
+#print raw_files
+
+outputFile = options.outputFile
 
 process.source = cms.Source("PoolSource",
     # replace 'myfile.root' with the source file you want to use
                             fileNames = cms.untracked.vstring(
+                                inputFiles
                                 #' file:reco_8.root'
+                                #raw_files
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-0mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-100mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'
+                                #[
+                                #    'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_1.root',
+                                #    'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_2.root',
+                                #    'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_3.root',
+                                #    'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_4.root',
+                                #    'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_5.root',
+                                #]
+
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-10000mm_privateMC_11X_RECOMINI_v2_generationForPhase2/output_10.root'
-                               'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
+                                #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4e_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2HS_noPU_CEPH_vector/output_10.root'  # closer to our signal of interest
                                 #'file:/ceph/cms//store/user/mcitron/ProjectMetis/HTo2LongLivedTo4b_MH-125_MFF-50_CTau-1000mm_privateMC_11X_RECOMINI_v1_generationForPhase2_noPU_CEPH/output_10.root'
     )
 )
 
 process.TFileService = cms.Service("TFileService",
-    fileName = cms.string("ntuple_phase2timing.root")
+    fileName = cms.string(outputFile)
 )
 
 process.demo = cms.EDAnalyzer('Phase2TimingAnalyzer',
-                              offlinePrimaryVertices = cms.InputTag("offlinePrimaryVertices", "", "RECO"),
+                              offlinePrimaryVertices = cms.InputTag("offlinePrimaryVertices4D", "", "RECO"),
                               displacedTracks = cms.InputTag("generalTracks", "", "RECO"),
                               genParticles    = cms.InputTag("genParticles", "", "HLT"),
                               recoak4PFJets    = cms.InputTag("ak4PFJets", "", "RECO"),

@@ -15,6 +15,7 @@
 #include "TMath.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
 #include "DataFormats/ForwardDetId/interface/BTLDetId.h"
+#include "DataFormats/PatCandidates/interface/Photon.h"
 
 #include "DataFormats/FTLRecHit/interface/FTLRecHitCollections.h"
 #include "RecoMTD/Records/interface/MTDRecoGeometryRecord.h"
@@ -57,13 +58,13 @@ public:
                             float&,
                             float&,
                             uint&);
-  void jetTimeFromMTDCells(const reco::Jet&,
+  void jetTimeFromMTDCells(const reco::Photon&,
                             const edm::SortedCollection<FTLRecHit, edm::StrictWeakOrdering<FTLRecHit>>&,
                             float&,
                             float&,
 			   uint&,
-			   bool);
-  void jetTimeFromMTDClus(const reco::Jet&,
+			   bool);//const reco::Jet&
+  void jetTimeFromMTDClus(const reco::Photon&,
 			      const edm::Handle<FTLClusterCollection>&,
 			      float&,
 			      float&,
