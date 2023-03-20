@@ -73,6 +73,7 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   int ngen;
   int ntrack;
   int npv;
+  int ngen_pv;
   int nLLP;
   int nelectron;
   int nphoton;
@@ -131,13 +132,19 @@ struct tree_struc_{ //structs group several related variables, unlike an array i
   std::vector<float> LLP_pt;
   std::vector<float> LLP_mass;
 
-  //reconstructed vertex (could be generated?)
+  //reconstructed vertex
   std::vector<float> pv_t;
   std::vector<float> pv_x;
   std::vector<float> pv_y;
   std::vector<float> pv_z;
 
-  //reconstructed vertex (could be generated?)
+  //generated primary vertex
+  std::vector<float> gen_pv_t;
+  std::vector<float> gen_pv_x;
+  std::vector<float> gen_pv_y;
+  std::vector<float> gen_pv_z;
+
+  //reconstructed tracks
   std::vector<float> track_eta;
   std::vector<float> track_phi;
   std::vector<float> track_pt;
@@ -330,6 +337,7 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   int ngen = 0;
   int ntrack = 0;
   int npv = 0;
+  int ngen_pv = 1;
   int nLLP = 0; //counter for LLP
   int nelectron = 0;
   int nphoton = 0;
@@ -394,6 +402,12 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
   std::vector<float> LLP_phi;
   std::vector<float> LLP_pt;
   std::vector<float> LLP_mass;
+
+  //generated PV info
+  std::vector<float> gen_pv_t;
+  std::vector<float> gen_pv_x;
+  std::vector<float> gen_pv_y;
+  std::vector<float> gen_pv_z;
 
   //vertex info
   std::vector<float> pv_t;
@@ -474,6 +488,22 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
     e_hgphi.push_back(hgcalIntersection[1]);
     e_hgeta.push_back(hgcalIntersection[0]);
     e_hgdelay.push_back(hgcalIntersection[3]);
+  }
+  for (const auto & genpar_iter : *_genParticlesH){
+
+    // skip genparticles that have no parent (i.e. initial state partons)
+    if (genpar_iter.mother(0) == NULL)continue;
+
+    // get vertex coordinates for genparticles
+    float vx = genpar_iter.vertex().x();
+    float vy = genpar_iter.vertex().y();
+    float vz = genpar_iter.vertex().z();
+
+    gen_pv_x.push_back(vx);
+    gen_pv_y.push_back(vy);
+    gen_pv_z.push_back(vz);
+    gen_pv_t.push_back(0.); // don't know how to get the gen PV time, but should be ok without
+    break; // right now we're only interested in the PV, so stop the loop after first non-initial state parton
   }
 
 
@@ -846,6 +876,15 @@ void Phase2TimingAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSet
 
   }
 
+  tree_.ngen_pv = ngen_pv;
+  for (int it = 0; it < ngen_pv; it++){
+    tree_.gen_pv_t.push_back(gen_pv_t[it]);
+    tree_.gen_pv_x.push_back(gen_pv_x[it]);
+    tree_.gen_pv_y.push_back(gen_pv_y[it]);
+    tree_.gen_pv_z.push_back(gen_pv_z[it]);
+
+  }
+
 /*
   tree_.nrecojets        = nrecojets;
   for (int ij = 0; ij < nrecojets; ij++){
@@ -935,6 +974,11 @@ void Phase2TimingAnalyzer::beginJob() {
   tree->Branch("e_vy", &tree_.e_vy);
   tree->Branch("e_vz", &tree_.e_vz);
   tree->Branch("e_ctau", &tree_.e_ctau);
+
+  tree->Branch("gen_pv_t", &tree_.gen_pv_t);
+  tree->Branch("gen_pv_x", &tree_.gen_pv_x);
+  tree->Branch("gen_pv_y", &tree_.gen_pv_y);
+  tree->Branch("gen_pv_z", &tree_.gen_pv_z);
 
   tree->Branch("pv_t", &tree_.pv_t);
   tree->Branch("pv_x", &tree_.pv_x);
@@ -1030,6 +1074,11 @@ void Phase2TimingAnalyzer::clearVectors()
   tree_.pv_x.clear();
   tree_.pv_y.clear();
   tree_.pv_z.clear();
+
+  tree_.gen_pv_t.clear();
+  tree_.gen_pv_x.clear();
+  tree_.gen_pv_y.clear();
+  tree_.gen_pv_z.clear();
 
   tree_.track_pt.clear();
   tree_.track_eta.clear();
